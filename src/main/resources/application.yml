@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: takarub-esim-identity
+  main:
+    # TASK-015 ships no web layer yet; run as a plain (non-web) Spring context.
+    web-application-type: none
