@@ -22,7 +22,7 @@ import com.takarub.esim.identity.shared.time.ClockProvider;
 public class User extends AggregateRoot<UserId> {
 
     private final EmailAddress email;
-    private final PasswordHash passwordHash;
+    private PasswordHash passwordHash;
     private UserStatus status;
     private final Set<Role> roles;
 
@@ -78,6 +78,22 @@ public class User extends AggregateRoot<UserId> {
 
     public void delete(ClockProvider clock) {
         transitionTo(UserStatus.DELETED, clock);
+    }
+
+    /**
+     * Replaces the user's credential with an already-hashed password. The domain never hashes raw
+     * passwords (an infrastructure concern); the caller supplies a {@link PasswordHash}. A deleted
+     * account is terminal and cannot have its credential changed. Does not alter status or roles.
+     */
+    public void changePassword(PasswordHash newPasswordHash, ClockProvider clock) {
+        if (newPasswordHash == null) {
+            throw new ValidationException("New password hash is required to change the password");
+        }
+        if (status == UserStatus.DELETED) {
+            throw new UserDeletedException(id());
+        }
+        this.passwordHash = newPasswordHash;
+        touch(clock);
     }
 
     public void assignRole(Role role) {
