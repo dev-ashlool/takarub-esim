@@ -48,6 +48,26 @@ public class Verification extends AggregateRoot<VerificationId> {
                 now.plus(timeToLive), VerificationStatus.PENDING);
     }
 
+    private Verification(VerificationId id, Instant createdAt, Instant updatedAt, UserId userId,
+                         VerificationType type, Instant expiresAt, VerificationStatus status) {
+        super(id, createdAt, updatedAt);
+        this.userId = userId;
+        this.type = type;
+        this.expiresAt = expiresAt;
+        this.status = status;
+    }
+
+    /**
+     * Rebuilds a {@code Verification} from already-persisted state. Restores the stored status
+     * verbatim (including terminal states) without running lifecycle rules. For exclusive use by
+     * the infrastructure persistence mapper.
+     */
+    public static Verification reconstitute(VerificationId id, Instant createdAt, Instant updatedAt,
+                                            UserId userId, VerificationType type, Instant expiresAt,
+                                            VerificationStatus status) {
+        return new Verification(id, createdAt, updatedAt, userId, type, expiresAt, status);
+    }
+
     public void consume(ClockProvider clock) {
         ensurePending();
         if (isExpired(clock)) {

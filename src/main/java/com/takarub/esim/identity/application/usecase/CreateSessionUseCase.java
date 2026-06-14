@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import com.takarub.esim.identity.application.command.CreateSessionCommand;
 import com.takarub.esim.identity.application.exception.UserNotFoundApplicationException;
+import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.application.result.CreateSessionResult;
 import com.takarub.esim.identity.domain.session.DeviceMetadata;
 import com.takarub.esim.identity.domain.session.Session;
@@ -24,17 +25,20 @@ import com.takarub.esim.identity.shared.time.ClockProvider;
  */
 public class CreateSessionUseCase {
 
+    private final TransactionRunner transactionRunner;
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final IdGenerator idGenerator;
     private final ClockProvider clock;
     private final Duration sessionTtl;
 
-    public CreateSessionUseCase(UserRepository userRepository,
+    public CreateSessionUseCase(TransactionRunner transactionRunner,
+                                UserRepository userRepository,
                                 SessionRepository sessionRepository,
                                 IdGenerator idGenerator,
                                 ClockProvider clock,
                                 Duration sessionTtl) {
+        this.transactionRunner = transactionRunner;
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
         this.idGenerator = idGenerator;
@@ -43,25 +47,27 @@ public class CreateSessionUseCase {
     }
 
     public CreateSessionResult execute(CreateSessionCommand command) {
-        UserId userId = UserId.of(command.userId());
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundApplicationException(userId));
-        user.ensureCanAuthenticate();
+        return transactionRunner.execute(() -> {
+            UserId userId = UserId.of(command.userId());
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new UserNotFoundApplicationException(userId));
+            user.ensureCanAuthenticate();
 
-        Optional<Session> existingActive = sessionRepository.findActiveSessionByUser(userId);
-        if (existingActive.isPresent()) {
-            Session current = existingActive.get();
-            current.revoke(clock);
-            sessionRepository.save(current);
-        }
+            Optional<Session> existingActive = sessionRepository.findActiveSessionByUser(userId);
+            if (existingActive.isPresent()) {
+                Session current = existingActive.get();
+                current.revoke(clock);
+                sessionRepository.save(current);
+            }
 
-        DeviceMetadata deviceMetadata = DeviceMetadata.of(
-                command.deviceName(), command.deviceType(), command.ipAddress(),
-                command.userAgent(), clock.now());
-        Session session = Session.start(idGenerator, clock, userId, deviceMetadata, sessionTtl);
-        sessionRepository.save(session);
+            DeviceMetadata deviceMetadata = DeviceMetadata.of(
+                    command.deviceName(), command.deviceType(), command.ipAddress(),
+                    command.userAgent(), clock.now());
+            Session session = Session.start(idGenerator, clock, userId, deviceMetadata, sessionTtl);
+            sessionRepository.save(session);
 
-        return new CreateSessionResult(
-                session.id(), userId, session.refreshToken(), session.expiresAt());
+            return new CreateSessionResult(
+                    session.id(), userId, session.refreshToken(), session.expiresAt());
+        });
     }
 }

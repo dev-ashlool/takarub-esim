@@ -50,6 +50,27 @@ public class User extends AggregateRoot<UserId> {
                 UserStatus.PENDING_VERIFICATION, EnumSet.of(role));
     }
 
+    private User(UserId id, Instant createdAt, Instant updatedAt, EmailAddress email,
+                 PasswordHash passwordHash, UserStatus status, Set<Role> roles) {
+        super(id, createdAt, updatedAt);
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.status = status;
+        this.roles = (roles == null || roles.isEmpty())
+                ? EnumSet.noneOf(Role.class) : EnumSet.copyOf(roles);
+    }
+
+    /**
+     * Rebuilds a {@code User} from already-persisted state. Restores status and roles verbatim
+     * (including terminal states) without running registration or transition rules. For exclusive
+     * use by the infrastructure persistence mapper.
+     */
+    public static User reconstitute(UserId id, Instant createdAt, Instant updatedAt,
+                                    EmailAddress email, PasswordHash passwordHash,
+                                    UserStatus status, Set<Role> roles) {
+        return new User(id, createdAt, updatedAt, email, passwordHash, status, roles);
+    }
+
     public void verifyEmail(ClockProvider clock) {
         if (status == UserStatus.ACTIVE) {
             throw new UserAlreadyActiveException(id());

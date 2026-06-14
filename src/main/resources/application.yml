@@ -2,5 +2,24 @@ spring:
   application:
     name: takarub-esim-identity
   main:
-    # TASK-015 ships no web layer yet; run as a plain (non-web) Spring context.
+    # No web layer yet; run as a plain (non-web) Spring context.
     web-application-type: none
+  datasource:
+    # MySQL in production; values are environment-driven with local defaults.
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/takarub_esim}
+    username: ${SPRING_DATASOURCE_USERNAME:takarub}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    # Flyway is the schema source of truth; Hibernate only validates the mapping against it.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+# Identity module configuration (bound to IdentityProperties).
+identity:
+  session-ttl: PT24H
+  email-verification-ttl: PT24H
+  password-reset-ttl: PT1H

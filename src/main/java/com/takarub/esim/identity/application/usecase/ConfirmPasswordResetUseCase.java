@@ -6,6 +6,7 @@ import com.takarub.esim.identity.application.command.ConfirmPasswordResetCommand
 import com.takarub.esim.identity.application.exception.UserNotFoundApplicationException;
 import com.takarub.esim.identity.application.exception.VerificationNotFoundApplicationException;
 import com.takarub.esim.identity.application.port.PasswordHasher;
+import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.application.result.ConfirmPasswordResetResult;
 import com.takarub.esim.identity.domain.session.Session;
 import com.takarub.esim.identity.domain.session.SessionRepository;
@@ -33,17 +34,20 @@ import com.takarub.esim.identity.shared.time.ClockProvider;
  */
 public class ConfirmPasswordResetUseCase {
 
+    private final TransactionRunner transactionRunner;
     private final VerificationRepository verificationRepository;
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final PasswordHasher passwordHasher;
     private final ClockProvider clock;
 
-    public ConfirmPasswordResetUseCase(VerificationRepository verificationRepository,
+    public ConfirmPasswordResetUseCase(TransactionRunner transactionRunner,
+                                       VerificationRepository verificationRepository,
                                        UserRepository userRepository,
                                        SessionRepository sessionRepository,
                                        PasswordHasher passwordHasher,
                                        ClockProvider clock) {
+        this.transactionRunner = transactionRunner;
         this.verificationRepository = verificationRepository;
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
@@ -52,32 +56,34 @@ public class ConfirmPasswordResetUseCase {
     }
 
     public ConfirmPasswordResetResult execute(ConfirmPasswordResetCommand command) {
-        VerificationId verificationId = VerificationId.of(command.verificationId());
-        Verification verification = verificationRepository.findById(verificationId)
-                .orElseThrow(() -> new VerificationNotFoundApplicationException(verificationId));
-        if (verification.type() != VerificationType.PASSWORD_RESET) {
-            throw new ValidationException("Verification is not a password reset");
-        }
-        verification.consume(clock);
+        return transactionRunner.execute(() -> {
+            VerificationId verificationId = VerificationId.of(command.verificationId());
+            Verification verification = verificationRepository.findById(verificationId)
+                    .orElseThrow(() -> new VerificationNotFoundApplicationException(verificationId));
+            if (verification.type() != VerificationType.PASSWORD_RESET) {
+                throw new ValidationException("Verification is not a password reset");
+            }
+            verification.consume(clock);
 
-        UserId userId = verification.userId();
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundApplicationException(userId));
-        PasswordHash newPasswordHash = passwordHasher.hash(command.newRawPassword());
-        user.changePassword(newPasswordHash, clock);
+            UserId userId = verification.userId();
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new UserNotFoundApplicationException(userId));
+            PasswordHash newPasswordHash = passwordHasher.hash(command.newRawPassword());
+            user.changePassword(newPasswordHash, clock);
 
-        int revokedSessionCount = 0;
-        Optional<Session> activeSession = sessionRepository.findActiveSessionByUser(userId);
-        if (activeSession.isPresent()) {
-            Session session = activeSession.get();
-            session.revoke(clock);
-            sessionRepository.save(session);
-            revokedSessionCount = 1;
-        }
+            int revokedSessionCount = 0;
+            Optional<Session> activeSession = sessionRepository.findActiveSessionByUser(userId);
+            if (activeSession.isPresent()) {
+                Session session = activeSession.get();
+                session.revoke(clock);
+                sessionRepository.save(session);
+                revokedSessionCount = 1;
+            }
 
-        verificationRepository.save(verification);
-        userRepository.save(user);
+            verificationRepository.save(verification);
+            userRepository.save(user);
 
-        return new ConfirmPasswordResetResult(user.id(), revokedSessionCount);
+            return new ConfirmPasswordResetResult(user.id(), revokedSessionCount);
+        });
     }
 }

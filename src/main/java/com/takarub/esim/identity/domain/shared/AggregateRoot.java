@@ -23,6 +23,18 @@ public abstract class AggregateRoot<ID> {
         this.updatedAt = createdAt;
     }
 
+    /**
+     * Reconstruction constructor. Restores the persisted {@code updatedAt} verbatim, which the
+     * primary constructor cannot do (it can only initialise {@code updatedAt} to {@code createdAt}
+     * or advance it to "now" via {@link #touch(ClockProvider)}). Intended solely for use by
+     * aggregate {@code reconstitute(...)} factories rebuilding state loaded from a store.
+     */
+    protected AggregateRoot(ID id, Instant createdAt, Instant updatedAt) {
+        this.id = Objects.requireNonNull(id, "id must not be null");
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+        this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+    }
+
     public ID id() {
         return id;
     }
