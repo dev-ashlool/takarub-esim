@@ -1,7 +1,7 @@
 /**
- * Identity <strong>presentation</strong> layer &mdash; inbound adapters.
+ * Identity <strong>presentation</strong> layer &mdash; inbound HTTP adapters.
  *
- * <p>REST controllers and the {@code GlobalExceptionHandler} (which will consume the shared
- * exception foundation) live here. Implemented in later tasks.
+ * <p>Organised package-by-feature ({@code auth}, {@code users}) with shared presentation
+ * concerns under {@code shared} and {@code exception}.
  */
 package com.takarub.esim.identity.presentation;

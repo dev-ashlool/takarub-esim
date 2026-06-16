@@ -1,6 +1,4 @@
 spring:
-  main:
-    web-application-type: none
   datasource:
     # In-memory H2 in MySQL compatibility mode so the single MySQL-flavoured Flyway
     # migration set runs unchanged in tests.

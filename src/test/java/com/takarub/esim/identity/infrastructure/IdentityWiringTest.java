@@ -31,7 +31,7 @@ import com.takarub.esim.identity.shared.security.SecurityContextProvider;
  * Hibernate schema validation, and asserts that the infrastructure beans and all explicitly wired
  * use-case beans are present.
  */
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class IdentityWiringTest {
 
     @Autowired

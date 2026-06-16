@@ -13,7 +13,7 @@ import com.takarub.esim.identity.shared.time.ClockProvider;
  * Validates that the Spring context loads and the shared infrastructure providers are wired and
  * functional. No business behaviour is asserted (none exists after TASK-015).
  */
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class SharedLayerSmokeTest {
 
     @Autowired
