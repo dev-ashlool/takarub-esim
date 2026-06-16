@@ -22,7 +22,7 @@ import com.takarub.esim.identity.shared.time.ClockProvider;
 public class User extends AggregateRoot<UserId> {
 
     private final EmailAddress email;
-    private final PasswordHash passwordHash;
+    private PasswordHash passwordHash;
     private UserStatus status;
     private final Set<Role> roles;
 
@@ -48,6 +48,27 @@ public class User extends AggregateRoot<UserId> {
         }
         return new User(UserId.generate(idGenerator), clock.now(), email, passwordHash,
                 UserStatus.PENDING_VERIFICATION, EnumSet.of(role));
+    }
+
+    private User(UserId id, Instant createdAt, Instant updatedAt, EmailAddress email,
+                 PasswordHash passwordHash, UserStatus status, Set<Role> roles) {
+        super(id, createdAt, updatedAt);
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.status = status;
+        this.roles = (roles == null || roles.isEmpty())
+                ? EnumSet.noneOf(Role.class) : EnumSet.copyOf(roles);
+    }
+
+    /**
+     * Rebuilds a {@code User} from already-persisted state. Restores status and roles verbatim
+     * (including terminal states) without running registration or transition rules. For exclusive
+     * use by the infrastructure persistence mapper.
+     */
+    public static User reconstitute(UserId id, Instant createdAt, Instant updatedAt,
+                                    EmailAddress email, PasswordHash passwordHash,
+                                    UserStatus status, Set<Role> roles) {
+        return new User(id, createdAt, updatedAt, email, passwordHash, status, roles);
     }
 
     public void verifyEmail(ClockProvider clock) {
@@ -78,6 +99,22 @@ public class User extends AggregateRoot<UserId> {
 
     public void delete(ClockProvider clock) {
         transitionTo(UserStatus.DELETED, clock);
+    }
+
+    /**
+     * Replaces the user's credential with an already-hashed password. The domain never hashes raw
+     * passwords (an infrastructure concern); the caller supplies a {@link PasswordHash}. A deleted
+     * account is terminal and cannot have its credential changed. Does not alter status or roles.
+     */
+    public void changePassword(PasswordHash newPasswordHash, ClockProvider clock) {
+        if (newPasswordHash == null) {
+            throw new ValidationException("New password hash is required to change the password");
+        }
+        if (status == UserStatus.DELETED) {
+            throw new UserDeletedException(id());
+        }
+        this.passwordHash = newPasswordHash;
+        touch(clock);
     }
 
     public void assignRole(Role role) {

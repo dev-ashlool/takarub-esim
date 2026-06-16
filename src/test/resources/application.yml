@@ -1,0 +1,21 @@
+spring:
+  main:
+    web-application-type: none
+  datasource:
+    # In-memory H2 in MySQL compatibility mode so the single MySQL-flavoured Flyway
+    # migration set runs unchanged in tests.
+    url: jdbc:h2:mem:takarub_esim;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+identity:
+  session-ttl: PT24H
+  email-verification-ttl: PT24H
+  password-reset-ttl: PT1H

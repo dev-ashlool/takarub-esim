@@ -50,6 +50,29 @@ public class Session extends AggregateRoot<SessionId> {
                 now.plus(timeToLive));
     }
 
+    private Session(SessionId id, Instant createdAt, Instant updatedAt, UserId userId,
+                    RefreshToken refreshToken, SessionStatus status, DeviceMetadata deviceMetadata,
+                    Instant expiresAt) {
+        super(id, createdAt, updatedAt);
+        this.userId = userId;
+        this.refreshToken = refreshToken;
+        this.status = status;
+        this.deviceMetadata = deviceMetadata;
+        this.expiresAt = expiresAt;
+    }
+
+    /**
+     * Rebuilds a {@code Session} from already-persisted state. Restores the stored status, refresh
+     * token, device metadata and expiry verbatim (including revoked/expired sessions) without
+     * running lifecycle rules. For exclusive use by the infrastructure persistence mapper.
+     */
+    public static Session reconstitute(SessionId id, Instant createdAt, Instant updatedAt,
+                                       UserId userId, RefreshToken refreshToken, SessionStatus status,
+                                       DeviceMetadata deviceMetadata, Instant expiresAt) {
+        return new Session(id, createdAt, updatedAt, userId, refreshToken, status, deviceMetadata,
+                expiresAt);
+    }
+
     public RefreshToken rotateRefreshToken(IdGenerator idGenerator, ClockProvider clock, Duration timeToLive) {
         ensureActive(clock);
         requirePositive(timeToLive);
