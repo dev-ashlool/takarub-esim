@@ -17,4 +17,13 @@ public interface PasswordHasher {
      * @return the resulting {@link PasswordHash}
      */
     PasswordHash hash(String rawPassword);
+
+    /**
+     * Verifies a raw password against a stored {@link PasswordHash}.
+     *
+     * @param rawPassword  the plaintext password supplied by the caller
+     * @param passwordHash the stored hash to verify against
+     * @return {@code true} when the password matches the hash
+     */
+    boolean matches(String rawPassword, PasswordHash passwordHash);
 }

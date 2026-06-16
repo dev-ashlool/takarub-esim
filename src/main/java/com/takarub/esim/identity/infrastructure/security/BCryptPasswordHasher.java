@@ -20,4 +20,9 @@ public class BCryptPasswordHasher implements PasswordHasher {
     public PasswordHash hash(String rawPassword) {
         return PasswordHash.of(passwordEncoder.encode(rawPassword));
     }
+
+    @Override
+    public boolean matches(String rawPassword, PasswordHash passwordHash) {
+        return passwordEncoder.matches(rawPassword, passwordHash.value());
+    }
 }

@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import com.takarub.esim.identity.application.port.NotificationSender;
 import com.takarub.esim.identity.application.port.PasswordHasher;
 import com.takarub.esim.identity.application.port.TransactionRunner;
+import com.takarub.esim.identity.application.port.AccessTokenIssuer;
+import com.takarub.esim.identity.application.usecase.AuthenticateUserUseCase;
 import com.takarub.esim.identity.application.usecase.ConfirmPasswordResetUseCase;
 import com.takarub.esim.identity.application.usecase.CreateSessionUseCase;
 import com.takarub.esim.identity.application.usecase.GetSessionByIdUseCase;
@@ -22,6 +24,7 @@ import com.takarub.esim.identity.application.usecase.VerifyEmailUseCase;
 import com.takarub.esim.identity.domain.session.SessionRepository;
 import com.takarub.esim.identity.domain.user.UserRepository;
 import com.takarub.esim.identity.domain.verification.VerificationRepository;
+import com.takarub.esim.identity.shared.security.SecurityContextProvider;
 
 /**
  * Boots the full Spring context against the test (H2) datasource, exercising Flyway migration and
@@ -43,6 +46,10 @@ class IdentityWiringTest {
     private SessionRepository sessionRepository;
     @Autowired
     private VerificationRepository verificationRepository;
+    @Autowired
+    private AccessTokenIssuer accessTokenIssuer;
+    @Autowired
+    private SecurityContextProvider securityContextProvider;
 
     @Autowired
     private RegisterUserUseCase registerUserUseCase;
@@ -50,6 +57,8 @@ class IdentityWiringTest {
     private VerifyEmailUseCase verifyEmailUseCase;
     @Autowired
     private CreateSessionUseCase createSessionUseCase;
+    @Autowired
+    private AuthenticateUserUseCase authenticateUserUseCase;
     @Autowired
     private ConfirmPasswordResetUseCase confirmPasswordResetUseCase;
     @Autowired
@@ -73,6 +82,8 @@ class IdentityWiringTest {
         assertThat(userRepository).isNotNull();
         assertThat(sessionRepository).isNotNull();
         assertThat(verificationRepository).isNotNull();
+        assertThat(accessTokenIssuer).isNotNull();
+        assertThat(securityContextProvider).isNotNull();
     }
 
     @Test
@@ -80,6 +91,7 @@ class IdentityWiringTest {
         assertThat(registerUserUseCase).isNotNull();
         assertThat(verifyEmailUseCase).isNotNull();
         assertThat(createSessionUseCase).isNotNull();
+        assertThat(authenticateUserUseCase).isNotNull();
         assertThat(confirmPasswordResetUseCase).isNotNull();
         assertThat(refreshSessionUseCase).isNotNull();
         assertThat(revokeSessionUseCase).isNotNull();

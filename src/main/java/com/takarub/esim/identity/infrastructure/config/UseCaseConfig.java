@@ -4,9 +4,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.takarub.esim.identity.application.port.AccessTokenIssuer;
 import com.takarub.esim.identity.application.port.NotificationSender;
 import com.takarub.esim.identity.application.port.PasswordHasher;
 import com.takarub.esim.identity.application.port.TransactionRunner;
+import com.takarub.esim.identity.application.usecase.AuthenticateUserUseCase;
 import com.takarub.esim.identity.application.usecase.ConfirmPasswordResetUseCase;
 import com.takarub.esim.identity.application.usecase.CreateSessionUseCase;
 import com.takarub.esim.identity.application.usecase.GetSessionByIdUseCase;
@@ -65,6 +67,15 @@ public class UseCaseConfig {
                                                      IdentityProperties properties) {
         return new CreateSessionUseCase(transactionRunner, userRepository, sessionRepository,
                 idGenerator, clockProvider, properties.sessionTtl());
+    }
+
+    @Bean
+    public AuthenticateUserUseCase authenticateUserUseCase(UserRepository userRepository,
+                                                           PasswordHasher passwordHasher,
+                                                           CreateSessionUseCase createSessionUseCase,
+                                                           AccessTokenIssuer accessTokenIssuer) {
+        return new AuthenticateUserUseCase(userRepository, passwordHasher, createSessionUseCase,
+                accessTokenIssuer);
     }
 
     @Bean

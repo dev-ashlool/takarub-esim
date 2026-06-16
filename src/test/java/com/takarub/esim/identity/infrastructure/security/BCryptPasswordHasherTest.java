@@ -29,4 +29,18 @@ class BCryptPasswordHasherTest {
 
         assertThat(first.value()).isNotEqualTo(second.value());
     }
+
+    @Test
+    void matchesReturnsTrueForCorrectPassword() {
+        PasswordHash hash = hasher.hash("correct-password");
+
+        assertThat(hasher.matches("correct-password", hash)).isTrue();
+    }
+
+    @Test
+    void matchesReturnsFalseForIncorrectPassword() {
+        PasswordHash hash = hasher.hash("correct-password");
+
+        assertThat(hasher.matches("wrong-password", hash)).isFalse();
+    }
 }

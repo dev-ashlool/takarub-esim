@@ -19,3 +19,7 @@ identity:
   session-ttl: PT24H
   email-verification-ttl: PT24H
   password-reset-ttl: PT1H
+  jwt:
+    secret: test-jwt-secret-must-be-at-least-32-chars-long
+    issuer: takarub-esim-identity-test
+    access-token-expiration: PT15M
