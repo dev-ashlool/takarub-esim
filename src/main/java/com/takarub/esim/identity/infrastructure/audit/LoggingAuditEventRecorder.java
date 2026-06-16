@@ -66,4 +66,16 @@ public class LoggingAuditEventRecorder implements AuditEventRecorder {
                 null,
                 Map.of("path", path != null ? path : "")));
     }
+
+    public void recordLogoutSuccess(String userId, String sessionId, String traceId) {
+        record(new AuditEvent(
+                "LOGOUT_SUCCESS",
+                userId,
+                "USER",
+                "SESSION",
+                sessionId,
+                clock.now(),
+                traceId,
+                Map.of()));
+    }
 }

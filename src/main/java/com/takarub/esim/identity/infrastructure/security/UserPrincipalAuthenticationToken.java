@@ -17,10 +17,12 @@ import com.takarub.esim.identity.shared.security.UserPrincipal;
 public class UserPrincipalAuthenticationToken extends AbstractAuthenticationToken {
 
     private final UserPrincipal principal;
+    private final String sessionId;
 
-    public UserPrincipalAuthenticationToken(UserPrincipal principal) {
+    public UserPrincipalAuthenticationToken(UserPrincipal principal, String sessionId) {
         super(toAuthorities(principal.roles()));
         this.principal = principal;
+        this.sessionId = sessionId;
         setAuthenticated(true);
     }
 
@@ -32,6 +34,10 @@ public class UserPrincipalAuthenticationToken extends AbstractAuthenticationToke
     @Override
     public UserPrincipal getPrincipal() {
         return principal;
+    }
+
+    public String sessionId() {
+        return sessionId;
     }
 
     private static Collection<? extends GrantedAuthority> toAuthorities(Set<String> roles) {

@@ -17,6 +17,7 @@ import com.takarub.esim.identity.application.usecase.AuthenticateUserUseCase;
 import com.takarub.esim.identity.application.usecase.ConfirmPasswordResetUseCase;
 import com.takarub.esim.identity.application.usecase.GetSessionByIdUseCase;
 import com.takarub.esim.identity.application.usecase.GetUserByIdUseCase;
+import com.takarub.esim.identity.application.usecase.LogoutUseCase;
 import com.takarub.esim.identity.application.usecase.RefreshSessionUseCase;
 import com.takarub.esim.identity.application.usecase.RegisterUserUseCase;
 import com.takarub.esim.identity.application.usecase.RequestPasswordResetUseCase;
@@ -34,6 +35,7 @@ import com.takarub.esim.identity.presentation.auth.response.RegisterUserResponse
 import com.takarub.esim.identity.presentation.auth.response.ResetPasswordResponse;
 import com.takarub.esim.identity.presentation.auth.response.VerifyEmailResponse;
 import com.takarub.esim.identity.shared.exception.UnauthorizedException;
+import com.takarub.esim.identity.shared.security.SecurityContextProvider;
 
 import jakarta.validation.Valid;
 
@@ -52,6 +54,8 @@ public class AuthenticationController {
     private final AccessTokenIssuer accessTokenIssuer;
     private final AuthenticationMapper mapper;
     private final LoggingAuditEventRecorder auditEventRecorder;
+    private final LogoutUseCase logoutUseCase;
+    private final SecurityContextProvider securityContextProvider;
 
     public AuthenticationController(RegisterUserUseCase registerUserUseCase,
                                   AuthenticateUserUseCase authenticateUserUseCase,
@@ -63,7 +67,9 @@ public class AuthenticationController {
                                   GetUserByIdUseCase getUserByIdUseCase,
                                   AccessTokenIssuer accessTokenIssuer,
                                   AuthenticationMapper mapper,
-                                  LoggingAuditEventRecorder auditEventRecorder) {
+                                  LoggingAuditEventRecorder auditEventRecorder,
+                                  LogoutUseCase logoutUseCase,
+                                  SecurityContextProvider securityContextProvider) {
         this.registerUserUseCase = registerUserUseCase;
         this.authenticateUserUseCase = authenticateUserUseCase;
         this.refreshSessionUseCase = refreshSessionUseCase;
@@ -75,6 +81,8 @@ public class AuthenticationController {
         this.accessTokenIssuer = accessTokenIssuer;
         this.mapper = mapper;
         this.auditEventRecorder = auditEventRecorder;
+        this.logoutUseCase = logoutUseCase;
+        this.securityContextProvider = securityContextProvider;
     }
 
     @PostMapping("/register")
@@ -126,5 +134,16 @@ public class AuthenticationController {
         ResetPasswordResponse response = mapper.toResponse(
                 confirmPasswordResetUseCase.execute(mapper.toCommand(request)));
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        String userId = securityContextProvider.currentUserId()
+                .orElseThrow(() -> new UnauthorizedException("Authentication is required."));
+        String sessionId = securityContextProvider.currentSessionId()
+                .orElseThrow(() -> new UnauthorizedException("Authentication is required."));
+        logoutUseCase.execute(mapper.toCommand(sessionId));
+        auditEventRecorder.recordLogoutSuccess(userId, sessionId, null);
+        return ResponseEntity.noContent().build();
     }
 }

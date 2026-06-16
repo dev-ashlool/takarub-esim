@@ -23,15 +23,17 @@ class SpringSecurityContextProviderTest {
     void returnsAuthenticatedPrincipal() {
         UserPrincipal principal = new UserPrincipal("user-id", "user@example.com", Set.of("CUSTOMER"));
         SecurityContextHolder.getContext().setAuthentication(
-                new UserPrincipalAuthenticationToken(principal));
+                new UserPrincipalAuthenticationToken(principal, "session-id"));
 
         assertThat(provider.currentPrincipal()).contains(principal);
         assertThat(provider.currentUserId()).contains("user-id");
+        assertThat(provider.currentSessionId()).contains("session-id");
     }
 
     @Test
     void returnsEmptyForAnonymousContext() {
         assertThat(provider.currentPrincipal()).isEmpty();
         assertThat(provider.currentUserId()).isEmpty();
+        assertThat(provider.currentSessionId()).isEmpty();
     }
 }

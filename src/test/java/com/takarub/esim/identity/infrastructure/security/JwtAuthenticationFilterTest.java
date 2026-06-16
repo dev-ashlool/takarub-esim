@@ -71,6 +71,9 @@ class JwtAuthenticationFilterTest {
         UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
         assertThat(principal.userId()).isEqualTo(userId);
+        UserPrincipalAuthenticationToken authentication =
+                (UserPrincipalAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
+        assertThat(authentication.sessionId()).isEqualTo(sessionId);
         verify(authenticatedSessionValidator).validateActiveSession(SessionId.of(sessionId));
     }
 

@@ -33,4 +33,13 @@ public class SpringSecurityContextProvider implements SecurityContextProvider {
     public Optional<String> currentUserId() {
         return currentPrincipal().map(UserPrincipal::userId);
     }
+
+    @Override
+    public Optional<String> currentSessionId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof UserPrincipalAuthenticationToken token) {
+            return Optional.ofNullable(token.sessionId());
+        }
+        return Optional.empty();
+    }
 }

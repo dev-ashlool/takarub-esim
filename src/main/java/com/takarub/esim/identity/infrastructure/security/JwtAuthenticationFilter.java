@@ -64,7 +64,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = claims.email() != null ? claims.email() : claims.userId();
             UserPrincipal principal = new UserPrincipal(claims.userId(), username, claims.roles());
             SecurityContextHolder.getContext().setAuthentication(
-                    new UserPrincipalAuthenticationToken(principal));
+                    new UserPrincipalAuthenticationToken(principal, claims.sessionId()));
             filterChain.doFilter(request, response);
         } catch (RuntimeException ex) {
             SecurityContextHolder.clearContext();

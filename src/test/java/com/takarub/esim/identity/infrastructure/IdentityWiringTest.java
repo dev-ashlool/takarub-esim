@@ -16,6 +16,7 @@ import com.takarub.esim.identity.application.usecase.CreateSessionUseCase;
 import com.takarub.esim.identity.application.usecase.GetSessionByIdUseCase;
 import com.takarub.esim.identity.application.usecase.GetUserByEmailUseCase;
 import com.takarub.esim.identity.application.usecase.GetUserByIdUseCase;
+import com.takarub.esim.identity.application.usecase.LogoutUseCase;
 import com.takarub.esim.identity.application.usecase.RefreshSessionUseCase;
 import com.takarub.esim.identity.application.usecase.RegisterUserUseCase;
 import com.takarub.esim.identity.application.usecase.RequestPasswordResetUseCase;
@@ -66,6 +67,8 @@ class IdentityWiringTest {
     @Autowired
     private RevokeSessionUseCase revokeSessionUseCase;
     @Autowired
+    private LogoutUseCase logoutUseCase;
+    @Autowired
     private RequestPasswordResetUseCase requestPasswordResetUseCase;
     @Autowired
     private GetUserByIdUseCase getUserByIdUseCase;
@@ -95,6 +98,7 @@ class IdentityWiringTest {
         assertThat(confirmPasswordResetUseCase).isNotNull();
         assertThat(refreshSessionUseCase).isNotNull();
         assertThat(revokeSessionUseCase).isNotNull();
+        assertThat(logoutUseCase).isNotNull();
         assertThat(requestPasswordResetUseCase).isNotNull();
         assertThat(getUserByIdUseCase).isNotNull();
         assertThat(getUserByEmailUseCase).isNotNull();

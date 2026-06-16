@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import com.takarub.esim.identity.application.command.AuthenticateUserCommand;
 import com.takarub.esim.identity.application.command.AuthenticateUserDeviceMetadata;
 import com.takarub.esim.identity.application.command.ConfirmPasswordResetCommand;
+import com.takarub.esim.identity.application.command.LogoutCommand;
 import com.takarub.esim.identity.application.command.RefreshSessionCommand;
 import com.takarub.esim.identity.application.command.RegisterUserCommand;
 import com.takarub.esim.identity.application.command.RequestPasswordResetCommand;
@@ -45,6 +46,10 @@ public class AuthenticationMapper {
 
     public RefreshSessionCommand toCommand(RefreshTokenRequest request) {
         return new RefreshSessionCommand(request.sessionId(), request.refreshToken());
+    }
+
+    public LogoutCommand toCommand(String sessionId) {
+        return new LogoutCommand(sessionId);
     }
 
     public VerifyEmailCommand toCommand(VerifyEmailRequest request) {

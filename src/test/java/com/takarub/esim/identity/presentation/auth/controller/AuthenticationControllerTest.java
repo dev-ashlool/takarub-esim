@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -21,17 +22,20 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.takarub.esim.identity.application.port.AccessTokenIssuer;
 import com.takarub.esim.identity.application.result.AuthenticateUserResult;
+import com.takarub.esim.identity.application.result.LogoutResult;
 import com.takarub.esim.identity.application.result.RegisterUserResult;
 import com.takarub.esim.identity.application.usecase.AuthenticateUserUseCase;
 import com.takarub.esim.identity.application.usecase.ConfirmPasswordResetUseCase;
 import com.takarub.esim.identity.application.usecase.GetSessionByIdUseCase;
 import com.takarub.esim.identity.application.usecase.GetUserByIdUseCase;
+import com.takarub.esim.identity.application.usecase.LogoutUseCase;
 import com.takarub.esim.identity.application.usecase.RefreshSessionUseCase;
 import com.takarub.esim.identity.application.usecase.RegisterUserUseCase;
 import com.takarub.esim.identity.application.usecase.RequestPasswordResetUseCase;
 import com.takarub.esim.identity.application.usecase.VerifyEmailUseCase;
 import com.takarub.esim.identity.domain.session.RefreshToken;
 import com.takarub.esim.identity.domain.session.SessionId;
+import com.takarub.esim.identity.domain.session.SessionStatus;
 import com.takarub.esim.identity.domain.user.EmailAddress;
 import com.takarub.esim.identity.domain.user.UserId;
 import com.takarub.esim.identity.domain.user.UserStatus;
@@ -40,6 +44,7 @@ import com.takarub.esim.identity.infrastructure.audit.LoggingAuditEventRecorder;
 import com.takarub.esim.identity.infrastructure.security.JwtAuthenticationFilter;
 import com.takarub.esim.identity.presentation.auth.mapper.AuthenticationMapper;
 import com.takarub.esim.identity.presentation.exception.GlobalExceptionHandler;
+import com.takarub.esim.identity.shared.security.SecurityContextProvider;
 
 @WebMvcTest(controllers = AuthenticationController.class)
 @Import({AuthenticationMapper.class, GlobalExceptionHandler.class})
@@ -71,6 +76,33 @@ class AuthenticationControllerTest {
     private LoggingAuditEventRecorder auditEventRecorder;
     @MockBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockBean
+    private LogoutUseCase logoutUseCase;
+    @MockBean
+    private SecurityContextProvider securityContextProvider;
+
+    @Test
+    void logoutReturnsNoContentWhenAuthenticated() throws Exception {
+        SessionId sessionId = SessionId.of(UUID.randomUUID());
+        String userId = UUID.randomUUID().toString();
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(userId));
+        when(securityContextProvider.currentSessionId()).thenReturn(Optional.of(sessionId.value().toString()));
+        when(logoutUseCase.execute(any())).thenReturn(new LogoutResult(sessionId, SessionStatus.REVOKED));
+
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isNoContent());
+
+        verify(auditEventRecorder).recordLogoutSuccess(userId, sessionId.value().toString(), null);
+    }
+
+    @Test
+    void logoutReturnsUnauthorizedWhenUnauthenticated() throws Exception {
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
 
     @Test
     void registerReturnsCreated() throws Exception {

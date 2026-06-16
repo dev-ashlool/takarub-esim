@@ -20,4 +20,9 @@ public interface SecurityContextProvider {
      * @return the authenticated user id, if any
      */
     Optional<String> currentUserId();
+
+    /**
+     * @return the authenticated session id, if any
+     */
+    Optional<String> currentSessionId();
 }
