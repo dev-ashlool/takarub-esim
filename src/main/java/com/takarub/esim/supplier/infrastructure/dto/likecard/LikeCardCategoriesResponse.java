@@ -1,0 +1,15 @@
+package com.takarub.esim.supplier.infrastructure.dto.likecard;
+
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+/**
+ * Top-level LikeCard YaHala {@code /online/yahala/categories} response envelope.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record LikeCardCategoriesResponse(
+        @JsonProperty("response") int response,
+        @JsonProperty("data") List<LikeCardCategoryData> data) {
+}
