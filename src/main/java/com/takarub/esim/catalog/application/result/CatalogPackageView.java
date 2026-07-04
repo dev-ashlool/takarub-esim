@@ -1,6 +1,7 @@
 package com.takarub.esim.catalog.application.result;
 
 import com.takarub.esim.supplier.domain.model.DataUnit;
+import com.takarub.esim.supplier.domain.model.LocationType;
 
 /**
  * Read model for a client-facing catalog package.
@@ -13,5 +14,6 @@ public record CatalogPackageView(
         String flagImageUrl,
         int dataAmount,
         DataUnit dataUnit,
-        int durationDays) {
+        int durationDays,
+        LocationType locationType) {
 }

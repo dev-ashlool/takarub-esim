@@ -1,7 +1,6 @@
 package com.takarub.esim.supplier.infrastructure.adapters.likecard;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,9 +25,7 @@ class LikeCardCurrencyTranslatorTest {
 
     @ParameterizedTest
     @ValueSource(strings = {" ", "", "  "})
-    void rejectsBlankCurrency(String currency) {
-        assertThatThrownBy(() -> LikeCardCurrencyTranslator.toIsoCurrency(currency))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("currency must not be blank");
+    void defaultsToUsdForBlankCurrency(String currency) {
+        assertThat(LikeCardCurrencyTranslator.toIsoCurrency(currency)).isEqualTo("USD");
     }
 }

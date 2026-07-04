@@ -19,14 +19,14 @@ public class LikeCardProductMapper {
             throw new IllegalArgumentException("product must not be null");
         }
 
-        String productId = requireNonBlank(product.productId(), "productId");
+        String productId = requireNonBlank(firstNonBlank(product.id(), product.productId()), "productId");
         String countryIso = requireNonBlank(
                 firstNonBlank(product.countryIso(), product.countryCode()), "countryIso");
         String priceRaw = requireNonBlank(firstNonBlank(product.priceWithVat(), product.price()), "priceWithVat");
         String currencyRaw = requireNonBlank(firstNonBlank(product.currency(), product.productCurrency()), "currency");
-        String dataAmountRaw = requireNonBlank(product.productData(), "productData");
-        String dataUnitRaw = requireNonBlank(product.productDataUnit(), "productDataUnit");
-        String validityRaw = requireNonBlank(firstNonBlank(product.validityDays(), product.validity()), "validity");
+        String dataAmountRaw = requireNonBlank(firstNonBlank(product.data(), product.productData()), "data");
+        String dataUnitRaw = requireNonBlank(firstNonBlank(product.dataUnit(), product.productDataUnit()), "dataUnit");
+        String validityRaw = requireNonBlank(firstNonBlank(product.duration(), firstNonBlank(product.validityDays(), product.validity())), "duration");
 
         return new RawSupplierProduct(
                 productId,
@@ -53,8 +53,12 @@ public class LikeCardProductMapper {
     }
 
     private static DataUnit parseDataUnit(String rawUnit) {
+        String normalized = rawUnit.trim().toUpperCase();
+        if (normalized.contains("UNLIMITED") || normalized.contains("%")) {
+            return DataUnit.UNLIMITED;
+        }
         try {
-            return DataUnit.valueOf(rawUnit.trim().toUpperCase());
+            return DataUnit.valueOf(normalized);
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Unsupported productDataUnit: " + rawUnit, ex);
         }

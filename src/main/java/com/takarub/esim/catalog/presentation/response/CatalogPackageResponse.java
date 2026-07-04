@@ -11,5 +11,6 @@ public record CatalogPackageResponse(
         String flagImageUrl,
         int dataAmount,
         String dataUnit,
-        int durationDays) {
+        int durationDays,
+        String locationType) {
 }

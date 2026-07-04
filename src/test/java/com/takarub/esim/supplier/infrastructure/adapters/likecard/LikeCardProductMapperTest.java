@@ -17,18 +17,22 @@ class LikeCardProductMapperTest {
     @Test
     void mapsLikeCardDtoToRawSupplierProduct() {
         LikeCardProductData dto = new LikeCardProductData(
-                "5653",
-                "JO",
-                null,
-                "Jordan 20GB",
-                "9.99",
-                null,
-                "دولار",
-                null,
-                "20",
-                "GB",
-                "30",
-                null);
+                "5653",       // id
+                null,         // productId
+                "JO",         // countryIso
+                null,         // countryCode
+                "Jordan 20GB",// productName
+                "9.99",       // priceWithVat
+                null,         // price
+                "دولار",      // currency
+                null,         // productCurrency
+                "20",         // data
+                null,         // productData
+                "GB",         // dataUnit
+                null,         // productDataUnit
+                "30",         // duration
+                null,         // validity
+                null);        // validityDays
 
         RawSupplierProduct product = mapper.toDomain(dto);
 
@@ -39,5 +43,20 @@ class LikeCardProductMapperTest {
         assertThat(product.dataAmount()).isEqualTo(20);
         assertThat(product.dataUnit()).isEqualTo(DataUnit.GB);
         assertThat(product.durationDays()).isEqualTo(30);
+    }
+
+    @Test
+    void mapsUnlimitedDataUnit() {
+        LikeCardProductData dto = new LikeCardProductData(
+                "10849", null, "US", null, "Unlimited Plan",
+                "2.50", null, "دولار", null,
+                "100", null, "% unlimited", null,
+                "1", null, null);
+
+        RawSupplierProduct product = mapper.toDomain(dto);
+
+        assertThat(product.id()).isEqualTo("10849");
+        assertThat(product.dataUnit()).isEqualTo(DataUnit.UNLIMITED);
+        assertThat(product.costCurrency()).isEqualTo("USD");
     }
 }

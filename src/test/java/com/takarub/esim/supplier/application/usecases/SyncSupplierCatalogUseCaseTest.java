@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.any;
 
 import static org.mockito.ArgumentMatchers.eq;
 
+import static org.mockito.Mockito.never;
+
 import static org.mockito.Mockito.verify;
 
 import static org.mockito.Mockito.when;
@@ -23,10 +25,6 @@ import java.util.List;
 import java.util.Map;
 
 import java.util.Set;
-
-import java.util.function.Supplier;
-
-
 
 import org.junit.jupiter.api.BeforeEach;
 
@@ -54,7 +52,15 @@ import com.takarub.esim.supplier.application.port.SupplierLikeCardProductLogPort
 
 import com.takarub.esim.supplier.application.port.SupplierPackageMappingPort;
 
+import com.takarub.esim.supplier.application.port.SupplierSyncAuditLogPort;
+
+import com.takarub.esim.supplier.domain.model.SupplierSyncAuditLog;
+
+import com.takarub.esim.catalog.infrastructure.cache.CatalogCacheInvalidator;
+
 import com.takarub.esim.supplier.domain.exceptions.SupplierApiException;
+
+import com.takarub.esim.supplier.domain.model.CountryInfo;
 
 import com.takarub.esim.supplier.domain.model.DataUnit;
 
@@ -96,6 +102,14 @@ class SyncSupplierCatalogUseCaseTest {
 
     private SupplierPackageMappingPort packageMappingPort;
 
+    @Mock
+
+    private SupplierSyncAuditLogPort auditLogPort;
+
+    @Mock
+
+    private CatalogCacheInvalidator cacheInvalidator;
+
 
 
     private SyncSupplierCatalogUseCase useCase;
@@ -118,15 +132,13 @@ class SyncSupplierCatalogUseCaseTest {
 
                 catalogPackagePort,
 
-                packageMappingPort);
+                packageMappingPort,
 
-        when(transactionRunner.execute(any())).thenAnswer(invocation -> {
+                auditLogPort,
 
-            Supplier<?> work = invocation.getArgument(0);
+                cacheInvalidator);
 
-            return work.get();
-
-        });
+        when(auditLogPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         when(likeCardSupplierAdapter.getSupplierType()).thenReturn(SupplierType.LIKE_CARD);
 
@@ -208,9 +220,11 @@ class SyncSupplierCatalogUseCaseTest {
 
         when(likeCardSupplierAdapter.fetchCategoryIds(any())).thenReturn(List.of("10", "20"));
 
-        when(likeCardSupplierAdapter.fetchCountryIsos(any(), eq("10"))).thenReturn(List.of("JO", "AE"));
+        when(likeCardSupplierAdapter.fetchCountries(any(), eq("10"))).thenReturn(List.of(
+                new CountryInfo("JO", "Jordan", null), new CountryInfo("AE", "UAE", null)));
 
-        when(likeCardSupplierAdapter.fetchCountryIsos(any(), eq("20"))).thenReturn(List.of("SA"));
+        when(likeCardSupplierAdapter.fetchCountries(any(), eq("20"))).thenReturn(List.of(
+                new CountryInfo("SA", "Saudi Arabia", null)));
 
         when(likeCardSupplierAdapter.fetchProducts(any(), eq("10"), eq("JO"))).thenReturn(List.of(jordanProduct));
 
@@ -282,7 +296,8 @@ class SyncSupplierCatalogUseCaseTest {
 
         when(likeCardSupplierAdapter.fetchCategoryIds(any())).thenReturn(List.of("10"));
 
-        when(likeCardSupplierAdapter.fetchCountryIsos(any(), eq("10"))).thenReturn(List.of("JO", "SA"));
+        when(likeCardSupplierAdapter.fetchCountries(any(), eq("10"))).thenReturn(List.of(
+                new CountryInfo("JO", "Jordan", null), new CountryInfo("SA", "Saudi Arabia", null)));
 
         when(likeCardSupplierAdapter.fetchProducts(any(), eq("10"), eq("JO")))
 
@@ -320,9 +335,10 @@ class SyncSupplierCatalogUseCaseTest {
                 "2001", "SA", new BigDecimal("14.50"), "USD", 10, DataUnit.GB, 15);
 
         when(likeCardSupplierAdapter.fetchCategoryIds(any())).thenReturn(List.of("10", "20"));
-        when(likeCardSupplierAdapter.fetchCountryIsos(any(), eq("10")))
+        when(likeCardSupplierAdapter.fetchCountries(any(), eq("10")))
                 .thenThrow(new SupplierApiException("LikeCard countries API call failed"));
-        when(likeCardSupplierAdapter.fetchCountryIsos(any(), eq("20"))).thenReturn(List.of("SA"));
+        when(likeCardSupplierAdapter.fetchCountries(any(), eq("20"))).thenReturn(List.of(
+                new CountryInfo("SA", "Saudi Arabia", null)));
         when(likeCardSupplierAdapter.fetchProducts(any(), eq("20"), eq("SA"))).thenReturn(List.of(saudiProduct));
 
         when(catalogPackagePort.resolvePackageId("SA", 10, DataUnit.GB, 15)).thenReturn("pkg-sa");
@@ -335,11 +351,75 @@ class SyncSupplierCatalogUseCaseTest {
         verify(likeCardSupplierAdapter).fetchProducts(any(), eq("20"), eq("SA"));
     }
 
+    @Test
+    void createsAuditLogOnSuccessfulSync() {
+        RawSupplierProduct product = new RawSupplierProduct(
+                "5653", "JO", new BigDecimal("9.99"), "USD", 20, DataUnit.GB, 30);
+        stubHarvest(List.of(product));
+        when(catalogPackagePort.resolvePackageId("JO", 20, DataUnit.GB, 30)).thenReturn("pkg-uuid-1");
+        when(packageMappingPort.markOutOfStockExcept(eq("LIKE_CARD"), any())).thenReturn(0);
+        when(catalogPackagePort.markUnavailableExcept(any())).thenReturn(0);
+
+        useCase.execute(SyncSupplierCatalogCommand.forLikeCard());
+
+        ArgumentCaptor<SupplierSyncAuditLog> captor = ArgumentCaptor.forClass(SupplierSyncAuditLog.class);
+        verify(auditLogPort, org.mockito.Mockito.atLeast(2)).save(captor.capture());
+        SupplierSyncAuditLog finalLog = captor.getAllValues().get(captor.getAllValues().size() - 1);
+        assertThat(finalLog.getStatus()).isIn(
+                com.takarub.esim.supplier.domain.model.SupplierSyncAuditStatus.SUCCESS,
+                com.takarub.esim.supplier.domain.model.SupplierSyncAuditStatus.PARTIAL);
+        assertThat(finalLog.getTotalProcessed()).isEqualTo(1);
+    }
+
+    @Test
+    void invalidatesCacheAfterSuccessfulSync() {
+        RawSupplierProduct product = new RawSupplierProduct(
+                "5653", "JO", new BigDecimal("9.99"), "USD", 20, DataUnit.GB, 30);
+        stubHarvest(List.of(product));
+        when(catalogPackagePort.resolvePackageId("JO", 20, DataUnit.GB, 30)).thenReturn("pkg-uuid-1");
+        when(packageMappingPort.markOutOfStockExcept(eq("LIKE_CARD"), any())).thenReturn(0);
+        when(catalogPackagePort.markUnavailableExcept(any())).thenReturn(0);
+
+        useCase.execute(SyncSupplierCatalogCommand.forLikeCard());
+
+        verify(cacheInvalidator).invalidateAll();
+    }
+
+    @Test
+    void doesNotInvalidateCacheOnFailedSync() {
+        when(credentialsPort.getCredentials("LIKE_CARD")).thenThrow(
+                new IllegalArgumentException("No credentials"));
+
+        try {
+            useCase.execute(SyncSupplierCatalogCommand.forLikeCard());
+        } catch (IllegalArgumentException ignored) {}
+
+        verify(cacheInvalidator, never()).invalidateAll();
+    }
+
+    @Test
+    void createsAuditLogOnFailedSync() {
+        when(credentialsPort.getCredentials("LIKE_CARD")).thenThrow(
+                new IllegalArgumentException("No credentials"));
+
+        try {
+            useCase.execute(SyncSupplierCatalogCommand.forLikeCard());
+        } catch (IllegalArgumentException ignored) {}
+
+        ArgumentCaptor<SupplierSyncAuditLog> captor = ArgumentCaptor.forClass(SupplierSyncAuditLog.class);
+        verify(auditLogPort, org.mockito.Mockito.atLeast(2)).save(captor.capture());
+        SupplierSyncAuditLog finalLog = captor.getAllValues().get(captor.getAllValues().size() - 1);
+        assertThat(finalLog.getStatus()).isEqualTo(
+                com.takarub.esim.supplier.domain.model.SupplierSyncAuditStatus.FAILED);
+        assertThat(finalLog.getErrorMessage()).contains("No credentials");
+    }
+
     private void stubHarvest(List<RawSupplierProduct> products) {
 
         when(likeCardSupplierAdapter.fetchCategoryIds(any())).thenReturn(List.of("10"));
 
-        when(likeCardSupplierAdapter.fetchCountryIsos(any(), eq("10"))).thenReturn(List.of("JO"));
+        when(likeCardSupplierAdapter.fetchCountries(any(), eq("10"))).thenReturn(List.of(
+                new CountryInfo("JO", "Jordan", null)));
 
         when(likeCardSupplierAdapter.fetchProducts(any(), eq("10"), eq("JO"))).thenReturn(products);
 

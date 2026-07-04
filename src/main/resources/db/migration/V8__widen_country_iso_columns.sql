@@ -1,0 +1,3 @@
+ALTER TABLE catalog_countries MODIFY COLUMN id VARCHAR(10) NOT NULL;
+
+ALTER TABLE catalog_packages MODIFY COLUMN country_iso VARCHAR(10) NOT NULL;

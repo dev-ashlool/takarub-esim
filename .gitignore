@@ -21,3 +21,6 @@ Thumbs.db
 
 ### Logs ###
 *.log
+
+### Local secrets (SMTP, DB passwords, etc.) ###
+src/main/resources/application-local.yml

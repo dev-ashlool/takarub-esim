@@ -8,5 +8,7 @@ public record SyncSupplierCatalogResult(
         int productsFetched,
         int mappingsUpserted,
         int mappingsMarkedOutOfStock,
-        int catalogPackagesMarkedUnavailable) {
+        int catalogPackagesMarkedUnavailable,
+        int regionsProcessedCount,
+        int invalidLocationCount) {
 }

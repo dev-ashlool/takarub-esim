@@ -6,5 +6,6 @@ package com.takarub.esim.supplier.domain.model;
 public enum DataUnit {
 
     MB,
-    GB
+    GB,
+    UNLIMITED
 }

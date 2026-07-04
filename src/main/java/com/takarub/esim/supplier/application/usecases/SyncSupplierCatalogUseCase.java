@@ -16,7 +16,9 @@ import java.util.Map;
 
 import java.util.Set;
 
+import org.slf4j.Logger;
 
+import org.slf4j.LoggerFactory;
 
 import com.takarub.esim.catalog.application.port.CatalogPackagePort;
 
@@ -30,13 +32,27 @@ import com.takarub.esim.supplier.application.port.SupplierLikeCardProductLogPort
 
 import com.takarub.esim.supplier.application.port.SupplierPackageMappingPort;
 
+import com.takarub.esim.supplier.application.port.SupplierSyncAuditLogPort;
+
+import com.takarub.esim.supplier.domain.model.LocationClassifier;
+
+import com.takarub.esim.supplier.domain.model.LocationType;
+
+import com.takarub.esim.supplier.domain.model.RegionNormalizer;
+
+import com.takarub.esim.supplier.domain.model.SupplierSyncAuditLog;
+
 import com.takarub.esim.supplier.application.result.SyncSupplierCatalogResult;
 
 import com.takarub.esim.supplier.domain.exceptions.SupplierApiException;
 
+import com.takarub.esim.supplier.domain.model.CountryInfo;
+
 import com.takarub.esim.supplier.domain.model.RawSupplierProduct;
 
 import com.takarub.esim.supplier.domain.model.SupplierType;
+
+import com.takarub.esim.catalog.infrastructure.cache.CatalogCacheInvalidator;
 
 import com.takarub.esim.supplier.infrastructure.adapters.likecard.LikeCardSupplierAdapter;
 
@@ -50,7 +66,7 @@ import com.takarub.esim.supplier.infrastructure.adapters.likecard.LikeCardSuppli
 
 public class SyncSupplierCatalogUseCase {
 
-
+    private static final Logger log = LoggerFactory.getLogger(SyncSupplierCatalogUseCase.class);
 
     private final TransactionRunner transactionRunner;
 
@@ -64,6 +80,10 @@ public class SyncSupplierCatalogUseCase {
 
     private final SupplierPackageMappingPort packageMappingPort;
 
+    private final SupplierSyncAuditLogPort auditLogPort;
+
+    private final CatalogCacheInvalidator cacheInvalidator;
+
 
 
     public SyncSupplierCatalogUseCase(TransactionRunner transactionRunner,
@@ -76,7 +96,11 @@ public class SyncSupplierCatalogUseCase {
 
                                       CatalogPackagePort catalogPackagePort,
 
-                                      SupplierPackageMappingPort packageMappingPort) {
+                                      SupplierPackageMappingPort packageMappingPort,
+
+                                      SupplierSyncAuditLogPort auditLogPort,
+
+                                      CatalogCacheInvalidator cacheInvalidator) {
 
         this.transactionRunner = transactionRunner;
 
@@ -90,25 +114,49 @@ public class SyncSupplierCatalogUseCase {
 
         this.packageMappingPort = packageMappingPort;
 
+        this.auditLogPort = auditLogPort;
+
+        this.cacheInvalidator = cacheInvalidator;
+
     }
 
 
 
     public SyncSupplierCatalogResult execute(SyncSupplierCatalogCommand command) {
 
-        return transactionRunner.execute(() -> synchronize(command.supplierKey()));
+        String supplierKey = command.supplierKey().toUpperCase();
+        SupplierSyncAuditLog auditLog = new SupplierSyncAuditLog(supplierKey);
+        auditLog = auditLogPort.save(auditLog);
+
+        try {
+            SyncSupplierCatalogResult result = synchronize(supplierKey);
+            int failedCount = result.productsFetched() - result.mappingsUpserted();
+            auditLog.markSuccess(
+                    result.productsFetched(),
+                    result.mappingsUpserted(),
+                    result.mappingsMarkedOutOfStock(),
+                    failedCount,
+                    0,
+                    result.invalidLocationCount(),
+                    result.regionsProcessedCount());
+            auditLogPort.save(auditLog);
+            cacheInvalidator.invalidateAll();
+            return result;
+        } catch (Exception ex) {
+            auditLog.markFailed(ex.getMessage());
+            auditLogPort.save(auditLog);
+            throw ex;
+        }
 
     }
 
 
 
-    private SyncSupplierCatalogResult synchronize(String supplierKey) {
-
-        String normalizedSupplierKey = supplierKey.toUpperCase();
+    private SyncSupplierCatalogResult synchronize(String normalizedSupplierKey) {
 
         if (!SupplierType.LIKE_CARD.name().equals(normalizedSupplierKey)) {
 
-            throw new IllegalArgumentException("Unsupported supplier key for catalog sync: " + supplierKey);
+            throw new IllegalArgumentException("Unsupported supplier key for catalog sync: " + normalizedSupplierKey);
 
         }
 
@@ -122,7 +170,9 @@ public class SyncSupplierCatalogUseCase {
 
         Map<String, String> credentials = credentialsPort.getCredentials(normalizedSupplierKey);
 
-        List<RawSupplierProduct> products = harvestProducts(credentials);
+        HarvestResult harvest = harvestProducts(credentials);
+
+        List<RawSupplierProduct> products = harvest.products;
 
 
 
@@ -137,43 +187,29 @@ public class SyncSupplierCatalogUseCase {
 
 
         for (RawSupplierProduct product : products) {
+            try {
+                likeCardProductLogPort.saveOrUpdate(product, syncedAt);
 
-            likeCardProductLogPort.saveOrUpdate(product, syncedAt);
+                String catalogPackageId = catalogPackagePort.resolvePackageId(
+                        product.countryIso(),
+                        product.dataAmount(),
+                        product.dataUnit(),
+                        product.durationDays());
 
+                packageMappingPort.upsertInStock(
+                        catalogPackageId,
+                        normalizedSupplierKey,
+                        product.id(),
+                        product.costPrice(),
+                        product.costCurrency());
 
-
-            String catalogPackageId = catalogPackagePort.resolvePackageId(
-
-                    product.countryIso(),
-
-                    product.dataAmount(),
-
-                    product.dataUnit(),
-
-                    product.durationDays());
-
-
-
-            packageMappingPort.upsertInStock(
-
-                    catalogPackageId,
-
-                    normalizedSupplierKey,
-
-                    product.id(),
-
-                    product.costPrice(),
-
-                    product.costCurrency());
-
-
-
-            presentRemoteIds.add(product.id());
-
-            availableCatalogPackageIds.add(catalogPackageId);
-
-            mappingsUpserted++;
-
+                presentRemoteIds.add(product.id());
+                availableCatalogPackageIds.add(catalogPackageId);
+                mappingsUpserted++;
+            } catch (Exception ex) {
+                log.warn("Failed to persist product id={} country={}: {}",
+                        product.id(), product.countryIso(), ex.getMessage());
+            }
         }
 
 
@@ -202,27 +238,39 @@ public class SyncSupplierCatalogUseCase {
 
                 mappingsMarkedOutOfStock,
 
-                catalogPackagesMarkedUnavailable);
+                catalogPackagesMarkedUnavailable,
+
+                harvest.regionsProcessed,
+
+                harvest.invalidLocations);
 
     }
 
 
 
-    private List<RawSupplierProduct> harvestProducts(Map<String, String> credentials) {
+    private HarvestResult harvestProducts(Map<String, String> credentials) {
 
         Map<String, RawSupplierProduct> deduplicated = new LinkedHashMap<>();
+        int regionsProcessed = 0;
+        int invalidLocations = 0;
 
+        List<String> categoryIds = likeCardSupplierAdapter.fetchCategoryIds(credentials);
 
+        log.info("Fetched {} category IDs from LikeCard", categoryIds.size());
 
-        for (String categoryId : likeCardSupplierAdapter.fetchCategoryIds(credentials)) {
+        for (String categoryId : categoryIds) {
 
-            List<String> countryIsos;
+            List<CountryInfo> countries;
 
             try {
 
-                countryIsos = likeCardSupplierAdapter.fetchCountryIsos(credentials, categoryId);
+                countries = likeCardSupplierAdapter.fetchCountries(credentials, categoryId);
+
+                log.info("Category {} returned {} countries", categoryId, countries.size());
 
             } catch (SupplierApiException ex) {
+
+                log.warn("Failed to fetch countries for category {}: {}", categoryId, ex.getMessage());
 
                 continue;
 
@@ -230,21 +278,48 @@ public class SyncSupplierCatalogUseCase {
 
 
 
-            for (String countryIso : countryIsos) {
+            for (CountryInfo country : countries) {
+
+                LocationClassifier.Classification classification = LocationClassifier.classify(country.iso());
+
+                if (classification == LocationClassifier.Classification.INVALID) {
+                    log.warn("Skipping invalid location value: {}", country.iso());
+                    invalidLocations++;
+                    continue;
+                }
+
+                LocationType locationType = classification == LocationClassifier.Classification.COUNTRY
+                        ? LocationType.COUNTRY : LocationType.REGION;
+                String displayName = locationType == LocationType.REGION
+                        ? RegionNormalizer.normalize(country.iso()) : country.name();
+
+                if (locationType == LocationType.REGION) {
+                    regionsProcessed++;
+                }
+
+                try {
+                    catalogPackagePort.ensureLocation(country.iso(), displayName, country.imageUrl(), locationType);
+                } catch (Exception ex) {
+                    log.warn("Failed to ensure location {} ({}): {}", country.iso(), locationType, ex.getMessage());
+                }
 
                 try {
 
-                    for (RawSupplierProduct product :
+                    List<RawSupplierProduct> products =
 
-                            likeCardSupplierAdapter.fetchProducts(credentials, categoryId, countryIso)) {
+                            likeCardSupplierAdapter.fetchProducts(credentials, categoryId, country.iso());
+
+                    for (RawSupplierProduct product : products) {
 
                         deduplicated.put(product.id(), product);
 
                     }
 
+                    log.debug("Category {} location {} ({}) returned {} products", categoryId, country.iso(), locationType, products.size());
+
                 } catch (SupplierApiException ex) {
 
-                    // Partial failure: skip this country and continue harvesting others.
+                    log.warn("Failed to fetch products for category {} location {}: {}", categoryId, country.iso(), ex.getMessage());
 
                 }
 
@@ -252,11 +327,14 @@ public class SyncSupplierCatalogUseCase {
 
         }
 
+        log.info("Harvest complete: {} unique products, {} regions, {} invalid locations",
+                deduplicated.size(), regionsProcessed, invalidLocations);
 
-
-        return new ArrayList<>(deduplicated.values());
+        return new HarvestResult(new ArrayList<>(deduplicated.values()), regionsProcessed, invalidLocations);
 
     }
+
+    private record HarvestResult(List<RawSupplierProduct> products, int regionsProcessed, int invalidLocations) {}
 
 }
 

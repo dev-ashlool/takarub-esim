@@ -10,6 +10,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record LikeCardProductResponse(
-        @JsonProperty("response") int response,
+        @JsonProperty("status") int response,
         @JsonProperty("data") List<LikeCardProductData> data) {
 }
