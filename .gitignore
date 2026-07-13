@@ -24,3 +24,5 @@ Thumbs.db
 
 ### Local secrets (SMTP, DB passwords, etc.) ###
 src/main/resources/application-local.yml
+LOCAL_DEV_HANDOFF.txt
+dist/

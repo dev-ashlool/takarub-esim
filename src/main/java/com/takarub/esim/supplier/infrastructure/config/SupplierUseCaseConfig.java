@@ -4,12 +4,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.takarub.esim.catalog.application.port.CatalogPackagePort;
+import com.takarub.esim.catalog.domain.service.CurrencyNormalizationService;
 import com.takarub.esim.catalog.infrastructure.cache.CatalogCacheInvalidator;
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.supplier.application.port.SupplierCredentialsPort;
 import com.takarub.esim.supplier.application.port.SupplierLikeCardProductLogPort;
 import com.takarub.esim.supplier.application.port.SupplierPackageMappingPort;
 import com.takarub.esim.supplier.application.port.SupplierSyncAuditLogPort;
+import com.takarub.esim.supplier.application.port.SyncChangeLogPort;
 import com.takarub.esim.supplier.application.usecases.SyncSupplierCatalogUseCase;
 import com.takarub.esim.supplier.domain.port.SupplierCatalogClient;
 import com.takarub.esim.supplier.infrastructure.adapters.likecard.LikeCardSupplierAdapter;
@@ -29,7 +31,9 @@ public class SupplierUseCaseConfig {
             CatalogPackagePort catalogPackagePort,
             SupplierPackageMappingPort packageMappingPort,
             SupplierSyncAuditLogPort auditLogPort,
-            CatalogCacheInvalidator cacheInvalidator) {
+            SyncChangeLogPort syncChangeLogPort,
+            CatalogCacheInvalidator cacheInvalidator,
+            CurrencyNormalizationService currencyNormalizationService) {
         return new SyncSupplierCatalogUseCase(
                 transactionRunner,
                 credentialsPort,
@@ -38,7 +42,9 @@ public class SupplierUseCaseConfig {
                 catalogPackagePort,
                 packageMappingPort,
                 auditLogPort,
-                cacheInvalidator);
+                syncChangeLogPort,
+                cacheInvalidator,
+                currencyNormalizationService);
     }
 
     @Bean

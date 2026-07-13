@@ -1,10 +1,12 @@
 package com.takarub.esim.catalog.application.result;
 
+import java.math.BigDecimal;
+
 import com.takarub.esim.supplier.domain.model.DataUnit;
 import com.takarub.esim.supplier.domain.model.LocationType;
 
 /**
- * Read model for detailed information about a single catalog package.
+ * Read model for detailed information about a single catalog package including sell price.
  */
 public record PackageDetailsView(
         String id,
@@ -16,5 +18,7 @@ public record PackageDetailsView(
         DataUnit dataUnit,
         int durationDays,
         boolean available,
-        LocationType locationType) {
+        LocationType locationType,
+        BigDecimal price,
+        String priceCurrency) {
 }

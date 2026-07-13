@@ -16,6 +16,8 @@ import jakarta.persistence.Table;
 
 /**
  * JPA persistence representation linking a catalog package to a supplier's remote product SKU.
+ * {@code costPrice}/{@code costCurrency} are the ORIGINAL supplier cost.
+ * {@code normalizedCostPrice}/{@code normalizedCurrency} are USD-comparable values.
  */
 @Entity
 @Table(name = "supplier_package_mappings")
@@ -41,6 +43,12 @@ public class SupplierPackageMappingEntity {
     @Column(name = "cost_currency", length = 3, nullable = false)
     private String costCurrency;
 
+    @Column(name = "normalized_cost_price", precision = 12, scale = 4, nullable = false)
+    private BigDecimal normalizedCostPrice;
+
+    @Column(name = "normalized_currency", length = 3, nullable = false)
+    private String normalizedCurrency;
+
     @Column(name = "is_in_stock", nullable = false)
     private boolean inStock;
 
@@ -50,12 +58,15 @@ public class SupplierPackageMappingEntity {
 
     public SupplierPackageMappingEntity(CatalogPackageEntity catalogPackage, String supplierKey,
                                         String remoteProductId, BigDecimal costPrice, String costCurrency,
+                                        BigDecimal normalizedCostPrice, String normalizedCurrency,
                                         boolean inStock) {
         this.catalogPackage = catalogPackage;
         this.supplierKey = supplierKey;
         this.remoteProductId = remoteProductId;
         this.costPrice = costPrice;
         this.costCurrency = costCurrency;
+        this.normalizedCostPrice = normalizedCostPrice;
+        this.normalizedCurrency = normalizedCurrency;
         this.inStock = inStock;
     }
 
@@ -83,6 +94,14 @@ public class SupplierPackageMappingEntity {
         return costCurrency;
     }
 
+    public BigDecimal getNormalizedCostPrice() {
+        return normalizedCostPrice;
+    }
+
+    public String getNormalizedCurrency() {
+        return normalizedCurrency;
+    }
+
     public boolean isInStock() {
         return inStock;
     }
@@ -97,5 +116,13 @@ public class SupplierPackageMappingEntity {
 
     public void setCostCurrency(String costCurrency) {
         this.costCurrency = costCurrency;
+    }
+
+    public void setNormalizedCostPrice(BigDecimal normalizedCostPrice) {
+        this.normalizedCostPrice = normalizedCostPrice;
+    }
+
+    public void setNormalizedCurrency(String normalizedCurrency) {
+        this.normalizedCurrency = normalizedCurrency;
     }
 }

@@ -1,5 +1,7 @@
 package com.takarub.esim.catalog.presentation.response;
 
+import java.math.BigDecimal;
+
 /**
  * REST response for a browsable catalog package.
  */
@@ -12,5 +14,7 @@ public record CatalogPackageResponse(
         int dataAmount,
         String dataUnit,
         int durationDays,
-        String locationType) {
+        String locationType,
+        BigDecimal price,
+        String priceCurrency) {
 }

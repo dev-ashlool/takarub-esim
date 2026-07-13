@@ -69,6 +69,7 @@ class BrowseCatalogUseCaseTest {
 
     private static CatalogPackageView sampleView(String id, String countryIso) {
         return new CatalogPackageView(
-                id, countryIso, "الأردن", "Jordan", null, 5, DataUnit.GB, 7, LocationType.COUNTRY);
+                id, countryIso, "الأردن", "Jordan", null, 5, DataUnit.GB, 7, LocationType.COUNTRY,
+                new java.math.BigDecimal("12.00"), "USD");
     }
 }

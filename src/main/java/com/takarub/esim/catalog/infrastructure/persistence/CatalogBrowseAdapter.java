@@ -1,36 +1,41 @@
 package com.takarub.esim.catalog.infrastructure.persistence;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.takarub.esim.catalog.infrastructure.config.CacheConfig;
 
 import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.catalog.application.result.CatalogPackageView;
 import com.takarub.esim.catalog.application.result.CountryView;
 import com.takarub.esim.catalog.application.result.PackageDetailsView;
 import com.takarub.esim.catalog.application.result.PagedResult;
+import com.takarub.esim.catalog.infrastructure.config.CacheConfig;
+import com.takarub.esim.pricing.domain.model.SellPrice;
+import com.takarub.esim.pricing.domain.service.SellPriceResolver;
 import com.takarub.esim.supplier.domain.model.DataUnit;
 
 /**
  * JPA implementation of the catalog browse read port.
+ * Only packages with a resolvable sell price are exposed publicly.
  */
 @Component
 public class CatalogBrowseAdapter implements CatalogBrowsePort {
 
     private final CatalogPackageJpaRepository catalogPackageJpaRepository;
+    private final SellPriceResolver sellPriceResolver;
 
-    public CatalogBrowseAdapter(CatalogPackageJpaRepository catalogPackageJpaRepository) {
+    public CatalogBrowseAdapter(CatalogPackageJpaRepository catalogPackageJpaRepository,
+                                SellPriceResolver sellPriceResolver) {
         this.catalogPackageJpaRepository = catalogPackageJpaRepository;
+        this.sellPriceResolver = sellPriceResolver;
     }
 
     @Override
@@ -42,7 +47,8 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
                 : catalogPackageJpaRepository.findByCountry_IdAndAvailableTrue(countryIso);
 
         return packages.stream()
-                .map(this::toView)
+                .map(this::toSellableView)
+                .flatMap(Optional::stream)
                 .toList();
     }
 
@@ -50,21 +56,24 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
     @Cacheable(value = CacheConfig.CATALOG_COUNTRIES, key = "'all'")
     @Transactional(readOnly = true)
     public List<CountryView> findCountriesWithAvailablePackages() {
-        List<CatalogPackageEntity> available = catalogPackageJpaRepository.findByAvailableTrue();
+        List<CatalogPackageView> sellable = catalogPackageJpaRepository.findByAvailableTrue().stream()
+                .map(this::toSellableView)
+                .flatMap(Optional::stream)
+                .toList();
 
-        Map<String, List<CatalogPackageEntity>> byCountry = available.stream()
-                .collect(Collectors.groupingBy(p -> p.getCountry().getId()));
+        Map<String, List<CatalogPackageView>> byCountry = sellable.stream()
+                .collect(Collectors.groupingBy(CatalogPackageView::countryIso));
 
         return byCountry.entrySet().stream()
                 .map(entry -> {
-                    CountryEntity country = entry.getValue().get(0).getCountry();
+                    CatalogPackageView sample = entry.getValue().get(0);
                     return new CountryView(
-                            country.getId(),
-                            country.getArabicName(),
-                            country.getEnglishName(),
-                            country.getFlagImageUrl(),
+                            sample.countryIso(),
+                            sample.countryArabicName(),
+                            sample.countryEnglishName(),
+                            sample.flagImageUrl(),
                             entry.getValue().size(),
-                            country.getLocationType());
+                            sample.locationType());
                 })
                 .sorted((a, b) -> a.englishName().compareToIgnoreCase(b.englishName()))
                 .toList();
@@ -79,23 +88,23 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
             String dataUnit, Integer durationDays, int page, int size) {
         String likeTerm = searchTerm != null ? "%" + searchTerm + "%" : null;
         DataUnit dataUnitEnum = parseDataUnit(dataUnit);
-        PageRequest pageRequest = PageRequest.of(page, size,
-                Sort.by("country.englishName").ascending()
-                        .and(Sort.by("dataAmount").ascending()));
+        Sort sort = Sort.by("country.englishName").ascending()
+                .and(Sort.by("dataAmount").ascending());
 
-        Page<CatalogPackageEntity> resultPage = catalogPackageJpaRepository.searchAvailable(
-                likeTerm, countryIso, dataAmount, dataUnitEnum, durationDays, pageRequest);
-
-        List<CatalogPackageView> content = resultPage.getContent().stream()
-                .map(this::toView)
+        List<CatalogPackageView> sellable = catalogPackageJpaRepository.searchAvailable(
+                        likeTerm, countryIso, dataAmount, dataUnitEnum, durationDays, Pageable.unpaged(sort))
+                .getContent()
+                .stream()
+                .map(this::toSellableView)
+                .flatMap(Optional::stream)
                 .toList();
 
-        return new PagedResult<>(
-                content,
-                resultPage.getNumber(),
-                resultPage.getSize(),
-                resultPage.getTotalElements(),
-                resultPage.getTotalPages());
+        int from = Math.min(page * size, sellable.size());
+        int to = Math.min(from + size, sellable.size());
+        List<CatalogPackageView> content = new ArrayList<>(sellable.subList(from, to));
+        int totalPages = size <= 0 ? 0 : (int) Math.ceil(sellable.size() / (double) size);
+
+        return new PagedResult<>(content, page, size, sellable.size(), totalPages);
     }
 
     @Override
@@ -103,12 +112,38 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
     @Transactional(readOnly = true)
     public Optional<PackageDetailsView> findPackageById(String packageId) {
         return catalogPackageJpaRepository.findById(packageId)
-                .map(this::toDetailsView);
+                .flatMap(this::toSellableDetailsView);
     }
 
-    private PackageDetailsView toDetailsView(CatalogPackageEntity entity) {
+    private Optional<CatalogPackageView> toSellableView(CatalogPackageEntity entity) {
+        Optional<SellPrice> sellPrice = sellPriceResolver.resolve(entity.getId());
+        if (sellPrice.isEmpty()) {
+            return Optional.empty();
+        }
         CountryEntity country = entity.getCountry();
-        return new PackageDetailsView(
+        SellPrice price = sellPrice.get();
+        return Optional.of(new CatalogPackageView(
+                entity.getId(),
+                country.getId(),
+                country.getArabicName(),
+                country.getEnglishName(),
+                country.getFlagImageUrl(),
+                entity.getDataAmount(),
+                entity.getDataUnit(),
+                entity.getDurationDays(),
+                entity.getLocationType(),
+                price.amount(),
+                price.currency()));
+    }
+
+    private Optional<PackageDetailsView> toSellableDetailsView(CatalogPackageEntity entity) {
+        Optional<SellPrice> sellPrice = sellPriceResolver.resolve(entity.getId());
+        if (sellPrice.isEmpty()) {
+            return Optional.empty();
+        }
+        CountryEntity country = entity.getCountry();
+        SellPrice price = sellPrice.get();
+        return Optional.of(new PackageDetailsView(
                 entity.getId(),
                 country.getId(),
                 country.getArabicName(),
@@ -118,7 +153,9 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
                 entity.getDataUnit(),
                 entity.getDurationDays(),
                 entity.isAvailable(),
-                entity.getLocationType());
+                entity.getLocationType(),
+                price.amount(),
+                price.currency()));
     }
 
     private static DataUnit parseDataUnit(String dataUnit) {
@@ -130,19 +167,5 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
         } catch (IllegalArgumentException e) {
             return null;
         }
-    }
-
-    private CatalogPackageView toView(CatalogPackageEntity entity) {
-        CountryEntity country = entity.getCountry();
-        return new CatalogPackageView(
-                entity.getId(),
-                country.getId(),
-                country.getArabicName(),
-                country.getEnglishName(),
-                country.getFlagImageUrl(),
-                entity.getDataAmount(),
-                entity.getDataUnit(),
-                entity.getDurationDays(),
-                entity.getLocationType());
     }
 }

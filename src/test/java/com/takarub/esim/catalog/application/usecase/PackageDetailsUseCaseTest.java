@@ -36,7 +36,8 @@ class PackageDetailsUseCaseTest {
     void returnsPackageDetailsWhenPackageExists() {
         PackageDetailsView expected = new PackageDetailsView(
                 "pkg-1", "JO", "الأردن", "Jordan",
-                "https://cdn.example/jo.png", 5, DataUnit.GB, 7, true, LocationType.COUNTRY);
+                "https://cdn.example/jo.png", 5, DataUnit.GB, 7, true, LocationType.COUNTRY,
+                new java.math.BigDecimal("12.00"), "USD");
         when(catalogBrowsePort.findPackageById("pkg-1")).thenReturn(Optional.of(expected));
 
         PackageDetailsView result = useCase.execute(new GetPackageDetailsQuery("pkg-1"));

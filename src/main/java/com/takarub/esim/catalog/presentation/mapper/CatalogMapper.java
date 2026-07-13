@@ -24,7 +24,9 @@ public class CatalogMapper {
                 view.dataAmount(),
                 view.dataUnit().name(),
                 view.durationDays(),
-                view.locationType().name());
+                view.locationType().name(),
+                view.price(),
+                view.priceCurrency());
     }
 
     public CountryResponse toResponse(CountryView view) {
@@ -48,7 +50,9 @@ public class CatalogMapper {
                 view.dataUnit().name(),
                 view.durationDays(),
                 view.available(),
-                view.locationType().name());
+                view.locationType().name(),
+                view.price(),
+                view.priceCurrency());
     }
 
     public SearchPackagesResponse toSearchResponse(PagedResult<CatalogPackageView> result) {
