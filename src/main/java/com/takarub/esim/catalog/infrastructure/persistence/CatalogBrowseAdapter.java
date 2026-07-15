@@ -1,6 +1,8 @@
 package com.takarub.esim.catalog.infrastructure.persistence;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,11 +32,14 @@ import com.takarub.esim.supplier.domain.model.DataUnit;
 public class CatalogBrowseAdapter implements CatalogBrowsePort {
 
     private final CatalogPackageJpaRepository catalogPackageJpaRepository;
+    private final CountryJpaRepository countryJpaRepository;
     private final SellPriceResolver sellPriceResolver;
 
     public CatalogBrowseAdapter(CatalogPackageJpaRepository catalogPackageJpaRepository,
+                                CountryJpaRepository countryJpaRepository,
                                 SellPriceResolver sellPriceResolver) {
         this.catalogPackageJpaRepository = catalogPackageJpaRepository;
+        this.countryJpaRepository = countryJpaRepository;
         this.sellPriceResolver = sellPriceResolver;
     }
 
@@ -66,14 +71,21 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
 
         return byCountry.entrySet().stream()
                 .map(entry -> {
-                    CatalogPackageView sample = entry.getValue().get(0);
+                    List<CatalogPackageView> packages = entry.getValue();
+                    CatalogPackageView sample = packages.get(0);
+                    BigDecimal minimumPrice = packages.stream()
+                            .map(CatalogPackageView::price)
+                            .min(Comparator.naturalOrder())
+                            .orElseThrow();
                     return new CountryView(
                             sample.countryIso(),
                             sample.countryArabicName(),
                             sample.countryEnglishName(),
                             sample.flagImageUrl(),
-                            entry.getValue().size(),
-                            sample.locationType());
+                            packages.size(),
+                            sample.locationType(),
+                            sample.countrySlug(),
+                            minimumPrice);
                 })
                 .sorted((a, b) -> a.englishName().compareToIgnoreCase(b.englishName()))
                 .toList();
@@ -115,6 +127,16 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
                 .flatMap(this::toSellableDetailsView);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> findCountryIdBySlug(String slug) {
+        if (slug == null || slug.isBlank()) {
+            return Optional.empty();
+        }
+        return countryJpaRepository.findBySlugIgnoreCase(slug.trim())
+                .map(CountryEntity::getId);
+    }
+
     private Optional<CatalogPackageView> toSellableView(CatalogPackageEntity entity) {
         Optional<SellPrice> sellPrice = sellPriceResolver.resolve(entity.getId());
         if (sellPrice.isEmpty()) {
@@ -133,7 +155,8 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
                 entity.getDurationDays(),
                 entity.getLocationType(),
                 price.amount(),
-                price.currency()));
+                price.currency(),
+                country.getSlug()));
     }
 
     private Optional<PackageDetailsView> toSellableDetailsView(CatalogPackageEntity entity) {
@@ -155,7 +178,8 @@ public class CatalogBrowseAdapter implements CatalogBrowsePort {
                 entity.isAvailable(),
                 entity.getLocationType(),
                 price.amount(),
-                price.currency()));
+                price.currency(),
+                country.getSlug()));
     }
 
     private static DataUnit parseDataUnit(String dataUnit) {

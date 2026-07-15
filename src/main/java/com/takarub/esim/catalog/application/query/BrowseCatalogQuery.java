@@ -3,7 +3,12 @@ package com.takarub.esim.catalog.application.query;
 /**
  * Optional country filter for catalog browsing.
  *
- * @param countryIso ISO alpha-2 country code; {@code null} or blank returns all available packages
+ * @param countryIso legacy ISO / location id filter
+ * @param countrySlug SEO slug filter; takes precedence over {@code countryIso} when both are set
  */
-public record BrowseCatalogQuery(String countryIso) {
+public record BrowseCatalogQuery(String countryIso, String countrySlug) {
+
+    public BrowseCatalogQuery(String countryIso) {
+        this(countryIso, null);
+    }
 }

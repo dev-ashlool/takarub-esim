@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import com.takarub.esim.catalog.application.port.CatalogPackagePort;
 import com.takarub.esim.catalog.domain.exceptions.PackageNotFoundException;
+import com.takarub.esim.catalog.domain.service.CatalogSlugGenerator;
 import com.takarub.esim.supplier.domain.model.DataUnit;
 import com.takarub.esim.supplier.domain.model.LocationType;
 
@@ -36,7 +37,7 @@ public class CatalogPackageAdapter implements CatalogPackagePort {
         CountryEntity entity = countryJpaRepository.findById(iso).orElse(null);
         if (entity == null) {
             String name = (englishName != null && !englishName.isBlank()) ? englishName : iso;
-            countryJpaRepository.save(new CountryEntity(iso, name, name, flagImageUrl));
+            countryJpaRepository.save(newCountry(iso, name, name, flagImageUrl, LocationType.COUNTRY));
         } else {
             boolean updated = false;
             if (englishName != null && !englishName.isBlank() && !englishName.equals(entity.getEnglishName())) {
@@ -59,7 +60,7 @@ public class CatalogPackageAdapter implements CatalogPackagePort {
         CountryEntity entity = countryJpaRepository.findById(locationId).orElse(null);
         if (entity == null) {
             String name = (displayName != null && !displayName.isBlank()) ? displayName : locationId;
-            countryJpaRepository.save(new CountryEntity(locationId, name, name, flagImageUrl, locationType));
+            countryJpaRepository.save(newCountry(locationId, name, name, flagImageUrl, locationType));
         } else {
             boolean updated = false;
             if (displayName != null && !displayName.isBlank() && !displayName.equals(entity.getEnglishName())) {
@@ -130,10 +131,14 @@ public class CatalogPackageAdapter implements CatalogPackagePort {
 
     private CountryEntity requireCountry(String countryIso) {
         return countryJpaRepository.findById(countryIso)
-                .orElseGet(() -> countryJpaRepository.save(createPlaceholderCountry(countryIso)));
+                .orElseGet(() -> countryJpaRepository.save(
+                        newCountry(countryIso, countryIso, countryIso, null, LocationType.COUNTRY)));
     }
 
-    private static CountryEntity createPlaceholderCountry(String countryIso) {
-        return new CountryEntity(countryIso, countryIso, countryIso, null);
+    private CountryEntity newCountry(String id, String arabicName, String englishName,
+                                     String flagImageUrl, LocationType locationType) {
+        String base = CatalogSlugGenerator.fromEnglishName(englishName);
+        String slug = CatalogSlugGenerator.unique(base, id, countryJpaRepository::existsBySlugIgnoreCase);
+        return new CountryEntity(id, arabicName, englishName, flagImageUrl, locationType, slug);
     }
 }

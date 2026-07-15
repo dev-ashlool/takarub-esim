@@ -137,10 +137,12 @@ public class CatalogController {
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = CatalogPackageResponse.class))))
     })
     public ResponseEntity<List<CatalogPackageResponse>> listPackages(
-            @Parameter(description = "Optional ISO-3166 alpha-2 country filter, e.g. JO")
+            @Parameter(description = "SEO country slug filter, e.g. jordan (takes precedence over countryIso)")
+            @RequestParam(name = "country", required = false) String country,
+            @Parameter(description = "Optional ISO-3166 / location id filter, e.g. JO (legacy)")
             @RequestParam(name = "countryIso", required = false) String countryIso) {
         List<CatalogPackageResponse> packages = browseCatalogUseCase
-                .execute(new BrowseCatalogQuery(countryIso))
+                .execute(new BrowseCatalogQuery(countryIso, country))
                 .stream()
                 .map(catalogMapper::toResponse)
                 .toList();

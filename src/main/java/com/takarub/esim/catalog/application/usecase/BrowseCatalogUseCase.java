@@ -2,6 +2,7 @@ package com.takarub.esim.catalog.application.usecase;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.catalog.application.query.BrowseCatalogQuery;
@@ -19,8 +20,14 @@ public class BrowseCatalogUseCase {
     }
 
     public List<CatalogPackageView> execute(BrowseCatalogQuery query) {
-        String countryIso = normalizeCountryIso(query.countryIso());
-        return catalogBrowsePort.findAvailablePackages(countryIso);
+        if (query.countrySlug() != null && !query.countrySlug().isBlank()) {
+            Optional<String> countryId = catalogBrowsePort.findCountryIdBySlug(query.countrySlug().trim());
+            if (countryId.isEmpty()) {
+                return List.of();
+            }
+            return catalogBrowsePort.findAvailablePackages(countryId.get());
+        }
+        return catalogBrowsePort.findAvailablePackages(normalizeCountryIso(query.countryIso()));
     }
 
     private static String normalizeCountryIso(String countryIso) {

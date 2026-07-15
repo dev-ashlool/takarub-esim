@@ -17,5 +17,6 @@ public record PackageDetailsResponse(
         boolean available,
         String locationType,
         BigDecimal price,
-        String priceCurrency) {
+        String priceCurrency,
+        String slug) {
 }

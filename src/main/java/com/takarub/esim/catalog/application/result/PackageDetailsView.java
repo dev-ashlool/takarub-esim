@@ -20,5 +20,6 @@ public record PackageDetailsView(
         boolean available,
         LocationType locationType,
         BigDecimal price,
-        String priceCurrency) {
+        String priceCurrency,
+        String countrySlug) {
 }

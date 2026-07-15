@@ -1,5 +1,6 @@
 package com.takarub.esim.catalog.infrastructure.persistence;
 
+import com.takarub.esim.catalog.domain.service.CatalogSlugGenerator;
 import com.takarub.esim.supplier.domain.model.LocationType;
 
 import jakarta.persistence.Column;
@@ -7,10 +8,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 /**
  * JPA persistence representation of a catalog location (country or region).
+ * {@code slug} is set once on first persist and must remain stable for SEO.
  */
 @Entity
 @Table(name = "catalog_countries")
@@ -33,6 +36,9 @@ public class CountryEntity {
     @Column(name = "location_type", length = 10, nullable = false)
     private LocationType locationType = LocationType.COUNTRY;
 
+    @Column(name = "slug", length = 255, nullable = false, unique = true, updatable = false)
+    private String slug;
+
     protected CountryEntity() {
         // Required by JPA.
     }
@@ -42,6 +48,7 @@ public class CountryEntity {
         this.arabicName = arabicName;
         this.englishName = englishName;
         this.flagImageUrl = flagImageUrl;
+        this.slug = CatalogSlugGenerator.fromEnglishName(englishName);
     }
 
     public CountryEntity(String id, String arabicName, String englishName, String flagImageUrl, LocationType locationType) {
@@ -50,6 +57,28 @@ public class CountryEntity {
         this.englishName = englishName;
         this.flagImageUrl = flagImageUrl;
         this.locationType = locationType;
+        this.slug = CatalogSlugGenerator.fromEnglishName(englishName);
+    }
+
+    public CountryEntity(String id, String arabicName, String englishName, String flagImageUrl,
+                         LocationType locationType, String slug) {
+        this.id = id;
+        this.arabicName = arabicName;
+        this.englishName = englishName;
+        this.flagImageUrl = flagImageUrl;
+        this.locationType = locationType;
+        this.slug = slug;
+    }
+
+    @PrePersist
+    void ensureSlugOnPersist() {
+        if (slug == null || slug.isBlank()) {
+            String base = CatalogSlugGenerator.fromEnglishName(englishName);
+            if (base.isBlank()) {
+                base = CatalogSlugGenerator.fromEnglishName(id);
+            }
+            this.slug = base.isBlank() ? "location" : base;
+        }
     }
 
     public String getId() {
@@ -86,5 +115,18 @@ public class CountryEntity {
 
     public void setLocationType(LocationType locationType) {
         this.locationType = locationType;
+    }
+
+    public String getSlug() {
+        return slug;
+    }
+
+    /**
+     * Assigns slug only when missing (set-once semantics for callers creating entities).
+     */
+    public void assignSlugIfAbsent(String candidateSlug) {
+        if (this.slug == null || this.slug.isBlank()) {
+            this.slug = candidateSlug;
+        }
     }
 }

@@ -19,5 +19,6 @@ public record CatalogPackageView(
         int durationDays,
         LocationType locationType,
         BigDecimal price,
-        String priceCurrency) {
+        String priceCurrency,
+        String countrySlug) {
 }

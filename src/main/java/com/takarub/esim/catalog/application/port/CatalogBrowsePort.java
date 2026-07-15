@@ -19,6 +19,8 @@ public interface CatalogBrowsePort {
 
     Optional<PackageDetailsView> findPackageById(String packageId);
 
+    Optional<String> findCountryIdBySlug(String slug);
+
     PagedResult<CatalogPackageView> searchAvailablePackages(
             String searchTerm, String countryIso, Integer dataAmount,
             String dataUnit, Integer durationDays, int page, int size);
