@@ -36,7 +36,8 @@ class SearchPackagesUseCaseTest {
     @Test
     void delegatesToPortWithTrimmedTerm() {
         CatalogPackageView view = new CatalogPackageView(
-                "pkg-1", "JO", "الأردن", "Jordan", null, 5, DataUnit.GB, 7, LocationType.COUNTRY);
+                "pkg-1", "JO", "الأردن", "Jordan", null, 5, DataUnit.GB, 7, LocationType.COUNTRY,
+                new java.math.BigDecimal("12.00"), "USD");
         PagedResult<CatalogPackageView> expected = new PagedResult<>(List.of(view), 0, 20, 1, 1);
         when(catalogBrowsePort.searchAvailablePackages("Jordan", null, null, null, null, 0, 20))
                 .thenReturn(expected);

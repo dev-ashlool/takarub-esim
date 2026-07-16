@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,8 @@ class CatalogControllerTest {
     void listPackagesReturnsAvailablePackagesAsJson() throws Exception {
         when(browseCatalogUseCase.execute(any())).thenReturn(List.of(
                 new CatalogPackageView(
-                        "pkg-1", "JO", "الأردن", "Jordan", "https://cdn.example/jo.png", 5, DataUnit.GB, 7, LocationType.COUNTRY)));
+                        "pkg-1", "JO", "الأردن", "Jordan", "https://cdn.example/jo.png", 5, DataUnit.GB, 7,
+                        LocationType.COUNTRY, new BigDecimal("12.00"), "USD")));
 
         mockMvc.perform(get("/api/v1/catalog/packages"))
                 .andExpect(status().isOk())
@@ -83,7 +85,9 @@ class CatalogControllerTest {
                 .andExpect(jsonPath("$[0].flagImageUrl").value("https://cdn.example/jo.png"))
                 .andExpect(jsonPath("$[0].dataAmount").value(5))
                 .andExpect(jsonPath("$[0].dataUnit").value("GB"))
-                .andExpect(jsonPath("$[0].durationDays").value(7));
+                .andExpect(jsonPath("$[0].durationDays").value(7))
+                .andExpect(jsonPath("$[0].price").value(12.00))
+                .andExpect(jsonPath("$[0].priceCurrency").value("USD"));
     }
 
     @Test
@@ -121,7 +125,8 @@ class CatalogControllerTest {
         when(packageDetailsUseCase.execute(any())).thenReturn(
                 new PackageDetailsView(
                         "pkg-1", "JO", "الأردن", "Jordan",
-                        "https://cdn.example/jo.png", 5, DataUnit.GB, 7, true, LocationType.COUNTRY));
+                        "https://cdn.example/jo.png", 5, DataUnit.GB, 7, true, LocationType.COUNTRY,
+                        new BigDecimal("12.00"), "USD"));
 
         mockMvc.perform(get("/api/v1/catalog/packages/pkg-1"))
                 .andExpect(status().isOk())
@@ -133,7 +138,9 @@ class CatalogControllerTest {
                 .andExpect(jsonPath("$.dataAmount").value(5))
                 .andExpect(jsonPath("$.dataUnit").value("GB"))
                 .andExpect(jsonPath("$.durationDays").value(7))
-                .andExpect(jsonPath("$.available").value(true));
+                .andExpect(jsonPath("$.available").value(true))
+                .andExpect(jsonPath("$.price").value(12.00))
+                .andExpect(jsonPath("$.priceCurrency").value("USD"));
     }
 
     @Test
@@ -152,7 +159,8 @@ class CatalogControllerTest {
         when(packageDetailsUseCase.execute(any())).thenReturn(
                 new PackageDetailsView(
                         "pkg-1", "JO", "الأردن", "Jordan",
-                        null, 5, DataUnit.GB, 7, true, LocationType.COUNTRY));
+                        null, 5, DataUnit.GB, 7, true, LocationType.COUNTRY,
+                        new BigDecimal("12.00"), "USD"));
 
         mockMvc.perform(get("/api/v1/catalog/packages/pkg-1"))
                 .andExpect(status().isOk());
@@ -162,7 +170,8 @@ class CatalogControllerTest {
     void searchPackagesReturnsMatchingResultsWithPagination() throws Exception {
         CatalogPackageView view = new CatalogPackageView(
                 "pkg-1", "JO", "الأردن", "Jordan",
-                "https://cdn.example/jo.png", 5, DataUnit.GB, 7, LocationType.COUNTRY);
+                "https://cdn.example/jo.png", 5, DataUnit.GB, 7, LocationType.COUNTRY,
+                new BigDecimal("12.00"), "USD");
         when(searchPackagesUseCase.execute(any())).thenReturn(
                 new PagedResult<>(List.of(view), 0, 20, 1, 1));
 
@@ -171,6 +180,8 @@ class CatalogControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value("pkg-1"))
                 .andExpect(jsonPath("$.content[0].countryEnglishName").value("Jordan"))
+                .andExpect(jsonPath("$.content[0].price").value(12.00))
+                .andExpect(jsonPath("$.content[0].priceCurrency").value("USD"))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1))

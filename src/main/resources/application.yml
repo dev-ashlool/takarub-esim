@@ -21,6 +21,11 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+# Catalog cache: use in-memory by default. Set true only when Redis is running.
+takarub:
+  cache:
+    redis-enabled: ${TAKARUB_CACHE_REDIS_ENABLED:false}
+
 # Identity module configuration (bound to IdentityProperties).
 identity:
   session-ttl: PT24H

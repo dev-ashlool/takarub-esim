@@ -40,6 +40,8 @@ class CatalogPersistenceMappingTest {
                 "5653",
                 new BigDecimal("9.9900"),
                 "USD",
+                new BigDecimal("9.9900"),
+                "USD",
                 true);
         entityManager.persist(mapping);
         entityManager.flush();
@@ -69,6 +71,8 @@ class CatalogPersistenceMappingTest {
         assertThat(reloadedMapping.getRemoteProductId()).isEqualTo("5653");
         assertThat(reloadedMapping.getCostPrice()).isEqualByComparingTo("9.9900");
         assertThat(reloadedMapping.getCostCurrency()).isEqualTo("USD");
+        assertThat(reloadedMapping.getNormalizedCostPrice()).isEqualByComparingTo("9.9900");
+        assertThat(reloadedMapping.getNormalizedCurrency()).isEqualTo("USD");
         assertThat(reloadedMapping.isInStock()).isTrue();
     }
 }

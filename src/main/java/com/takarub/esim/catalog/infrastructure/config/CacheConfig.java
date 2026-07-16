@@ -24,9 +24,13 @@ public class CacheConfig {
     public static final String CATALOG_PACKAGE_DETAILS = "catalog:package-details";
     public static final String CATALOG_SEARCH = "catalog:search";
 
+    /**
+     * Redis-backed catalog cache. Enable only when Redis is available:
+     * {@code takarub.cache.redis-enabled=true}.
+     */
     @Bean
     @Primary
-    @ConditionalOnProperty(name = "spring.data.redis.host")
+    @ConditionalOnProperty(name = "takarub.cache.redis-enabled", havingValue = "true")
     public CacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(30))
@@ -40,8 +44,12 @@ public class CacheConfig {
                 .build();
     }
 
+    /**
+     * In-memory catalog cache for local/dev when Redis is not enabled (default).
+     */
     @Bean
-    @ConditionalOnProperty(name = "spring.data.redis.host", matchIfMissing = true, havingValue = "__never__")
+    @Primary
+    @ConditionalOnProperty(name = "takarub.cache.redis-enabled", havingValue = "false", matchIfMissing = true)
     public CacheManager simpleCacheManager() {
         return new ConcurrentMapCacheManager(
                 CATALOG_COUNTRIES, CATALOG_PACKAGES, CATALOG_PACKAGE_DETAILS, CATALOG_SEARCH);

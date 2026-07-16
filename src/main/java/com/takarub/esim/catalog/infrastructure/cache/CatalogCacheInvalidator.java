@@ -31,9 +31,13 @@ public class CatalogCacheInvalidator {
 
     public void invalidateAll() {
         for (String cacheName : CATALOG_CACHE_NAMES) {
-            var cache = cacheManager.getCache(cacheName);
-            if (cache != null) {
-                cache.clear();
+            try {
+                var cache = cacheManager.getCache(cacheName);
+                if (cache != null) {
+                    cache.clear();
+                }
+            } catch (RuntimeException ex) {
+                log.warn("Failed to clear catalog cache '{}': {}", cacheName, ex.getMessage());
             }
         }
         log.info("All catalog caches invalidated (catalog:*)");
