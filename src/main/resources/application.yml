@@ -1,6 +1,8 @@
 spring:
   application:
     name: takarub-esim-identity
+  config:
+    import: optional:classpath:application-local.yml
   datasource:
     # MySQL in production; values are environment-driven with local defaults.
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/takarub_esim}
@@ -14,12 +16,21 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 # Identity module configuration (bound to IdentityProperties).
 identity:
   session-ttl: PT24H
   email-verification-ttl: PT24H
   password-reset-ttl: PT1H
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+  smtp:
+    encryption-password: ${SMTP_ENCRYPTION_PASSWORD:default-dev-key-change-in-production}
+    encryption-salt: ${SMTP_ENCRYPTION_SALT:ab12cd34ef567890}
   jwt:
     secret: ${IDENTITY_JWT_SECRET:change-me-in-production-use-at-least-32-chars!!}
     issuer: takarub-esim-identity

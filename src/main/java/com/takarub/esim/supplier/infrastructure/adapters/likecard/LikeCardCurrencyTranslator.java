@@ -17,9 +17,16 @@ public final class LikeCardCurrencyTranslator {
 
     public static String toIsoCurrency(String rawCurrency) {
         if (rawCurrency == null || rawCurrency.isBlank()) {
-            throw new IllegalArgumentException("currency must not be blank");
+            return "USD";
         }
         String normalized = rawCurrency.trim();
-        return ARABIC_TO_ISO.getOrDefault(normalized, normalized.toUpperCase(Locale.ROOT));
+        String iso = ARABIC_TO_ISO.get(normalized);
+        if (iso != null) {
+            return iso;
+        }
+        if (normalized.matches("[A-Za-z]{3}")) {
+            return normalized.toUpperCase(Locale.ROOT);
+        }
+        return "USD";
     }
 }

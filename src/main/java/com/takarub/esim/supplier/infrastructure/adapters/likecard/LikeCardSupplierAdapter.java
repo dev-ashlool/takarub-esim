@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import com.takarub.esim.supplier.domain.exceptions.SupplierApiException;
+import com.takarub.esim.supplier.domain.model.CountryInfo;
 import com.takarub.esim.supplier.domain.model.RawSupplierProduct;
 import com.takarub.esim.supplier.domain.model.SupplierType;
 import com.takarub.esim.supplier.domain.port.SupplierCatalogClient;
@@ -42,13 +43,12 @@ public class LikeCardSupplierAdapter implements SupplierCatalogClient {
 
     @Override
     public List<RawSupplierProduct> fetchRemoteCatalog(Map<String, String> credentials) {
-        List<RawSupplierProduct> harvested = new ArrayList<>();
         Map<String, RawSupplierProduct> deduplicated = new LinkedHashMap<>();
 
         for (String categoryId : fetchCategoryIds(credentials)) {
-            for (String countryIso : fetchCountryIsos(credentials, categoryId)) {
+            for (CountryInfo country : fetchCountries(credentials, categoryId)) {
                 try {
-                    for (RawSupplierProduct product : fetchProducts(credentials, categoryId, countryIso)) {
+                    for (RawSupplierProduct product : fetchProducts(credentials, categoryId, country.iso())) {
                         deduplicated.put(product.id(), product);
                     }
                 } catch (SupplierApiException ex) {
@@ -57,8 +57,7 @@ public class LikeCardSupplierAdapter implements SupplierCatalogClient {
             }
         }
 
-        harvested.addAll(deduplicated.values());
-        return harvested;
+        return new ArrayList<>(deduplicated.values());
     }
 
     /**
@@ -81,22 +80,22 @@ public class LikeCardSupplierAdapter implements SupplierCatalogClient {
     }
 
     /**
-     * Returns all country ISO codes for the given category identifier.
+     * Returns all countries with metadata (ISO, name, flag image) for the given category.
      */
-    public List<String> fetchCountryIsos(Map<String, String> credentials, String categoryId) {
+    public List<CountryInfo> fetchCountries(Map<String, String> credentials, String categoryId) {
         LikeCardCountriesResponse response = invokeCountriesApi(credentials, categoryId);
         if (response.data() == null || response.data().isEmpty()) {
             return List.of();
         }
 
-        List<String> countryIsos = new ArrayList<>();
+        List<CountryInfo> countries = new ArrayList<>();
         for (LikeCardCountryData country : response.data()) {
             String countryIso = extractCountryIso(country);
             if (countryIso != null) {
-                countryIsos.add(countryIso);
+                countries.add(new CountryInfo(countryIso, country.countryName(), country.countryImage()));
             }
         }
-        return List.copyOf(countryIsos);
+        return List.copyOf(countries);
     }
 
     /**

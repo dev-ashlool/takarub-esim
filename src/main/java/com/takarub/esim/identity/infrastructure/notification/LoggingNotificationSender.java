@@ -2,8 +2,6 @@ package com.takarub.esim.identity.infrastructure.notification;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import com.takarub.esim.identity.application.port.NotificationSender;
 import com.takarub.esim.identity.domain.user.EmailAddress;
 import com.takarub.esim.identity.domain.verification.VerificationId;
@@ -15,7 +13,6 @@ import com.takarub.esim.identity.domain.verification.VerificationId;
  *
  * <p>Logs only the recipient and the {@link VerificationId} reference, never any secret material.
  */
-@Component
 public class LoggingNotificationSender implements NotificationSender {
 
     private static final Logger log = LoggerFactory.getLogger(LoggingNotificationSender.class);

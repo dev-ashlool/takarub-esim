@@ -18,6 +18,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.takarub.esim.supplier.domain.exceptions.SupplierApiException;
+import com.takarub.esim.supplier.domain.model.CountryInfo;
 import com.takarub.esim.supplier.domain.model.RawSupplierProduct;
 import com.takarub.esim.supplier.domain.model.SupplierType;
 
@@ -52,18 +53,22 @@ class LikeCardSupplierAdapterTest {
     }
 
     @Test
-    void fetchCountryIsosReturnsIdentifiersFromCountriesApi() {
+    void fetchCountriesReturnsMetadataFromCountriesApi() {
         expectCountries("10", """
                 {
                   "response": 1,
                   "data": [
-                    { "countryIso": "JO", "countryName": "Jordan" },
-                    { "countryCode": "AE", "countryName": "UAE" }
+                    { "countryIso": "JO", "countryName": "Jordan", "countryImage": "https://flags/JO.png" },
+                    { "countryCode": "AE", "countryName": "UAE", "countryImage": "https://flags/AE.png" }
                   ]
                 }
                 """);
 
-        assertThat(adapter.fetchCountryIsos(credentials(), "10")).containsExactly("JO", "AE");
+        List<CountryInfo> countries = adapter.fetchCountries(credentials(), "10");
+        assertThat(countries).hasSize(2);
+        assertThat(countries).extracting(CountryInfo::iso).containsExactly("JO", "AE");
+        assertThat(countries).extracting(CountryInfo::name).containsExactly("Jordan", "UAE");
+        assertThat(countries).extracting(CountryInfo::imageUrl).containsExactly("https://flags/JO.png", "https://flags/AE.png");
         mockServer.verify();
     }
 
@@ -71,7 +76,7 @@ class LikeCardSupplierAdapterTest {
     void fetchProductsUsesCategoryAndCountryMultipartFields() {
         expectProducts("10", "JO", """
                 {
-                  "response": 1,
+                  "status": 1,
                   "data": [
                     {
                       "productId": "5653",
@@ -253,7 +258,7 @@ class LikeCardSupplierAdapterTest {
     private static String productPayload(String productId, String countryCode, String price) {
         return """
                 {
-                  "response": 1,
+                  "status": 1,
                   "data": [
                     {
                       "productId": "%s",
@@ -272,7 +277,7 @@ class LikeCardSupplierAdapterTest {
     private static String emptyProductsPayload() {
         return """
                 {
-                  "response": 1,
+                  "status": 1,
                   "data": []
                 }
                 """;

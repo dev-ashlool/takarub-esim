@@ -10,5 +10,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record LikeCardCountryData(
         @JsonProperty("countryIso") String countryIso,
         @JsonProperty("countryCode") String countryCode,
-        @JsonProperty("countryName") String countryName) {
+        @JsonProperty("countryName") String countryName,
+        @JsonProperty("countryImage") String countryImage) {
 }

@@ -1,6 +1,7 @@
 package com.takarub.esim.catalog.infrastructure.persistence;
 
 import com.takarub.esim.supplier.domain.model.DataUnit;
+import com.takarub.esim.supplier.domain.model.LocationType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,6 +41,10 @@ public class CatalogPackageEntity {
     @Column(name = "is_available", nullable = false)
     private boolean available;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "location_type", length = 10, nullable = false)
+    private LocationType locationType = LocationType.COUNTRY;
+
     protected CatalogPackageEntity() {
         // Required by JPA.
     }
@@ -52,6 +57,7 @@ public class CatalogPackageEntity {
         this.dataUnit = dataUnit;
         this.durationDays = durationDays;
         this.available = available;
+        this.locationType = country.getLocationType();
     }
 
     public String getId() {
@@ -80,5 +86,9 @@ public class CatalogPackageEntity {
 
     public void setAvailable(boolean available) {
         this.available = available;
+    }
+
+    public LocationType getLocationType() {
+        return locationType;
     }
 }

@@ -16,6 +16,7 @@ import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.catalog.application.query.BrowseCatalogQuery;
 import com.takarub.esim.catalog.application.result.CatalogPackageView;
 import com.takarub.esim.supplier.domain.model.DataUnit;
+import com.takarub.esim.supplier.domain.model.LocationType;
 
 @ExtendWith(MockitoExtension.class)
 class BrowseCatalogUseCaseTest {
@@ -68,6 +69,6 @@ class BrowseCatalogUseCaseTest {
 
     private static CatalogPackageView sampleView(String id, String countryIso) {
         return new CatalogPackageView(
-                id, countryIso, "الأردن", "Jordan", null, 5, DataUnit.GB, 7);
+                id, countryIso, "الأردن", "Jordan", null, 5, DataUnit.GB, 7, LocationType.COUNTRY);
     }
 }
