@@ -16,5 +16,6 @@ public record CatalogPackageResponse(
         int durationDays,
         String locationType,
         BigDecimal price,
-        String priceCurrency) {
+        String priceCurrency,
+        String slug) {
 }

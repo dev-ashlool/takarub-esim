@@ -1,5 +1,7 @@
 package com.takarub.esim.catalog.application.result;
 
+import java.math.BigDecimal;
+
 import com.takarub.esim.supplier.domain.model.LocationType;
 
 /**
@@ -11,5 +13,7 @@ public record CountryView(
         String englishName,
         String flagImageUrl,
         long packageCount,
-        LocationType locationType) {
+        LocationType locationType,
+        String slug,
+        BigDecimal minimumPrice) {
 }

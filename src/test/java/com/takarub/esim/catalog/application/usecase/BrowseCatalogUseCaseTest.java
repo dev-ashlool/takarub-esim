@@ -67,9 +67,38 @@ class BrowseCatalogUseCaseTest {
         assertThat(useCase.execute(new BrowseCatalogQuery(null))).isEmpty();
     }
 
+    @Test
+    void resolvesCountrySlugFilterWithoutUppercasing() {
+        when(catalogBrowsePort.findCountryIdBySlug("saudi-arabia")).thenReturn(java.util.Optional.of("SA"));
+        when(catalogBrowsePort.findAvailablePackages("SA")).thenReturn(List.of());
+
+        useCase.execute(new BrowseCatalogQuery(null, "saudi-arabia"));
+
+        verify(catalogBrowsePort).findCountryIdBySlug("saudi-arabia");
+        verify(catalogBrowsePort).findAvailablePackages("SA");
+    }
+
+    @Test
+    void countrySlugTakesPrecedenceOverCountryIso() {
+        when(catalogBrowsePort.findCountryIdBySlug("jordan")).thenReturn(java.util.Optional.of("JO"));
+        when(catalogBrowsePort.findAvailablePackages("JO")).thenReturn(List.of());
+
+        useCase.execute(new BrowseCatalogQuery("SA", "jordan"));
+
+        verify(catalogBrowsePort).findAvailablePackages("JO");
+    }
+
+    @Test
+    void returnsEmptyWhenCountrySlugIsUnknown() {
+        when(catalogBrowsePort.findCountryIdBySlug("missing-place")).thenReturn(java.util.Optional.empty());
+
+        assertThat(useCase.execute(new BrowseCatalogQuery(null, "missing-place"))).isEmpty();
+        verify(catalogBrowsePort).findCountryIdBySlug("missing-place");
+    }
+
     private static CatalogPackageView sampleView(String id, String countryIso) {
         return new CatalogPackageView(
                 id, countryIso, "الأردن", "Jordan", null, 5, DataUnit.GB, 7, LocationType.COUNTRY,
-                new java.math.BigDecimal("12.00"), "USD");
+                new java.math.BigDecimal("12.00"), "USD", "jordan");
     }
 }

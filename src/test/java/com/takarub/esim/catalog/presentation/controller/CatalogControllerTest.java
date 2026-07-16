@@ -74,7 +74,7 @@ class CatalogControllerTest {
         when(browseCatalogUseCase.execute(any())).thenReturn(List.of(
                 new CatalogPackageView(
                         "pkg-1", "JO", "الأردن", "Jordan", "https://cdn.example/jo.png", 5, DataUnit.GB, 7,
-                        LocationType.COUNTRY, new BigDecimal("12.00"), "USD")));
+                        LocationType.COUNTRY, new BigDecimal("12.00"), "USD", "jordan")));
 
         mockMvc.perform(get("/api/v1/catalog/packages"))
                 .andExpect(status().isOk())
@@ -87,7 +87,18 @@ class CatalogControllerTest {
                 .andExpect(jsonPath("$[0].dataUnit").value("GB"))
                 .andExpect(jsonPath("$[0].durationDays").value(7))
                 .andExpect(jsonPath("$[0].price").value(12.00))
-                .andExpect(jsonPath("$[0].priceCurrency").value("USD"));
+                .andExpect(jsonPath("$[0].priceCurrency").value("USD"))
+                .andExpect(jsonPath("$[0].slug").value("jordan-5gb-7days"));
+    }
+
+    @Test
+    @WithMockUser
+    void listPackagesSupportsCountrySlugFilter() throws Exception {
+        when(browseCatalogUseCase.execute(any())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/catalog/packages").param("country", "jordan"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
     }
 
     @Test
@@ -126,7 +137,7 @@ class CatalogControllerTest {
                 new PackageDetailsView(
                         "pkg-1", "JO", "الأردن", "Jordan",
                         "https://cdn.example/jo.png", 5, DataUnit.GB, 7, true, LocationType.COUNTRY,
-                        new BigDecimal("12.00"), "USD"));
+                        new BigDecimal("12.00"), "USD", "jordan"));
 
         mockMvc.perform(get("/api/v1/catalog/packages/pkg-1"))
                 .andExpect(status().isOk())
@@ -160,7 +171,7 @@ class CatalogControllerTest {
                 new PackageDetailsView(
                         "pkg-1", "JO", "الأردن", "Jordan",
                         null, 5, DataUnit.GB, 7, true, LocationType.COUNTRY,
-                        new BigDecimal("12.00"), "USD"));
+                        new BigDecimal("12.00"), "USD", "jordan"));
 
         mockMvc.perform(get("/api/v1/catalog/packages/pkg-1"))
                 .andExpect(status().isOk());
@@ -171,7 +182,7 @@ class CatalogControllerTest {
         CatalogPackageView view = new CatalogPackageView(
                 "pkg-1", "JO", "الأردن", "Jordan",
                 "https://cdn.example/jo.png", 5, DataUnit.GB, 7, LocationType.COUNTRY,
-                new BigDecimal("12.00"), "USD");
+                new BigDecimal("12.00"), "USD", "jordan");
         when(searchPackagesUseCase.execute(any())).thenReturn(
                 new PagedResult<>(List.of(view), 0, 20, 1, 1));
 

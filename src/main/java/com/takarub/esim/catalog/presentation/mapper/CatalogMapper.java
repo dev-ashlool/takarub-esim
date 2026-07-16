@@ -6,6 +6,7 @@ import com.takarub.esim.catalog.application.result.CatalogPackageView;
 import com.takarub.esim.catalog.application.result.CountryView;
 import com.takarub.esim.catalog.application.result.PackageDetailsView;
 import com.takarub.esim.catalog.application.result.PagedResult;
+import com.takarub.esim.catalog.domain.service.PackageSlugFormatter;
 import com.takarub.esim.catalog.presentation.response.CatalogPackageResponse;
 import com.takarub.esim.catalog.presentation.response.CountryResponse;
 import com.takarub.esim.catalog.presentation.response.PackageDetailsResponse;
@@ -26,7 +27,9 @@ public class CatalogMapper {
                 view.durationDays(),
                 view.locationType().name(),
                 view.price(),
-                view.priceCurrency());
+                view.priceCurrency(),
+                PackageSlugFormatter.format(
+                        view.countrySlug(), view.dataAmount(), view.dataUnit(), view.durationDays()));
     }
 
     public CountryResponse toResponse(CountryView view) {
@@ -36,7 +39,9 @@ public class CatalogMapper {
                 view.englishName(),
                 view.flagImageUrl(),
                 view.packageCount(),
-                view.locationType().name());
+                view.locationType().name(),
+                view.slug(),
+                view.minimumPrice());
     }
 
     public PackageDetailsResponse toResponse(PackageDetailsView view) {
@@ -52,7 +57,9 @@ public class CatalogMapper {
                 view.available(),
                 view.locationType().name(),
                 view.price(),
-                view.priceCurrency());
+                view.priceCurrency(),
+                PackageSlugFormatter.format(
+                        view.countrySlug(), view.dataAmount(), view.dataUnit(), view.durationDays()));
     }
 
     public SearchPackagesResponse toSearchResponse(PagedResult<CatalogPackageView> result) {
