@@ -38,8 +38,9 @@ public class CartItem {
 
     /**
      * Rebuilds a line from persisted state without re-running merge rules.
+     * Public so the infrastructure persistence mapper can reconstitute cart lines.
      */
-    static CartItem reconstitute(
+    public static CartItem reconstitute(
             String packageId,
             String countryIso,
             String countryNameArabic,
