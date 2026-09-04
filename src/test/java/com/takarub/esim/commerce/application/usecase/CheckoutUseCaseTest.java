@@ -1,0 +1,222 @@
+package com.takarub.esim.commerce.application.usecase;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Supplier;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
+import com.takarub.esim.catalog.application.result.PackageDetailsView;
+import com.takarub.esim.commerce.application.command.CheckoutCommand;
+import com.takarub.esim.commerce.application.exception.PackageNotSellableApplicationException;
+import com.takarub.esim.commerce.application.result.OrderView;
+import com.takarub.esim.commerce.domain.cart.Cart;
+import com.takarub.esim.commerce.domain.cart.CartItemOffer;
+import com.takarub.esim.commerce.domain.cart.CartRepository;
+import com.takarub.esim.commerce.domain.cart.CartStatus;
+import com.takarub.esim.commerce.domain.order.Order;
+import com.takarub.esim.commerce.domain.order.OrderRepository;
+import com.takarub.esim.commerce.domain.order.OrderStatus;
+import com.takarub.esim.identity.application.port.TransactionRunner;
+import com.takarub.esim.identity.domain.user.UserId;
+import com.takarub.esim.identity.shared.exception.ValidationException;
+import com.takarub.esim.identity.shared.id.UuidIdGenerator;
+import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.domain.model.DataUnit;
+import com.takarub.esim.supplier.domain.model.LocationType;
+
+@ExtendWith(MockitoExtension.class)
+class CheckoutUseCaseTest {
+
+    private static final Instant NOW = Instant.parse("2026-03-01T10:00:00Z");
+    private static final String PACKAGE_ID = "pkg-1";
+
+    @Mock
+    private TransactionRunner transactionRunner;
+    @Mock
+    private CartRepository cartRepository;
+    @Mock
+    private OrderRepository orderRepository;
+    @Mock
+    private CatalogBrowsePort catalogBrowsePort;
+    @Mock
+    private ClockProvider clock;
+
+    private final UuidIdGenerator idGenerator = new UuidIdGenerator();
+    private CheckoutUseCase useCase;
+    private String userId;
+
+    @BeforeEach
+    void setUp() {
+        userId = UUID.randomUUID().toString();
+        useCase = new CheckoutUseCase(
+                transactionRunner,
+                cartRepository,
+                orderRepository,
+                catalogBrowsePort,
+                idGenerator,
+                clock);
+        lenient().when(transactionRunner.execute(any())).thenAnswer(invocation -> {
+            Supplier<?> work = invocation.getArgument(0);
+            return work.get();
+        });
+    }
+
+    @Test
+    void successfulCheckoutWithoutPreviousOpenCart() {
+        when(clock.now()).thenReturn(NOW);
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(availablePackage()));
+        when(cartRepository.findOpenByUserId(UserId.of(userId))).thenReturn(Optional.empty());
+        when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderView view = useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 2));
+
+        assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
+        assertThat(view.userId()).isEqualTo(UserId.of(userId));
+        assertThat(view.items()).hasSize(1);
+        assertThat(view.items().get(0).packageId()).isEqualTo(PACKAGE_ID);
+        assertThat(view.items().get(0).quantity()).isEqualTo(2);
+        assertThat(view.totalAmount()).isEqualByComparingTo("19.98");
+        assertThat(view.currency()).isEqualTo("USD");
+
+        ArgumentCaptor<Cart> cartCaptor = ArgumentCaptor.forClass(Cart.class);
+        verify(cartRepository).save(cartCaptor.capture());
+        Cart savedCart = cartCaptor.getValue();
+        assertThat(savedCart.status()).isEqualTo(CartStatus.CHECKED_OUT);
+        assertThat(savedCart.id()).isEqualTo(view.cartId());
+        assertThat(savedCart.itemsView()).hasSize(1);
+        assertThat(savedCart.itemsView().get(0).quantity()).isEqualTo(2);
+
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().status()).isEqualTo(OrderStatus.CREATED);
+        assertThat(orderCaptor.getValue().cartId()).isEqualTo(savedCart.id());
+    }
+
+    @Test
+    void successfulCheckoutCancelsPreviousOpenCart() {
+        when(clock.now()).thenReturn(NOW);
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(availablePackage()));
+
+        Cart oldCart = Cart.create(idGenerator, clock, UserId.of(userId));
+        oldCart.addItem(staleOffer(), 5, clock);
+        when(cartRepository.findOpenByUserId(UserId.of(userId))).thenReturn(Optional.of(oldCart));
+        when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderView view = useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 1));
+
+        ArgumentCaptor<Cart> cartCaptor = ArgumentCaptor.forClass(Cart.class);
+        verify(cartRepository, times(2)).save(cartCaptor.capture());
+        List<Cart> savedCarts = cartCaptor.getAllValues();
+
+        Cart canceled = savedCarts.get(0);
+        Cart fresh = savedCarts.get(1);
+
+        assertThat(canceled.id()).isEqualTo(oldCart.id());
+        assertThat(canceled.status()).isEqualTo(CartStatus.CANCELED);
+        assertThat(fresh.id()).isNotEqualTo(oldCart.id());
+        assertThat(fresh.status()).isEqualTo(CartStatus.CHECKED_OUT);
+        assertThat(fresh.itemsView()).hasSize(1);
+        assertThat(fresh.itemsView().get(0).packageId()).isEqualTo(PACKAGE_ID);
+        assertThat(fresh.itemsView().get(0).quantity()).isEqualTo(1);
+
+        assertThat(view.cartId()).isEqualTo(fresh.id());
+        assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
+        assertThat(view.items().get(0).quantity()).isEqualTo(1);
+    }
+
+    @Test
+    void packageNotSellableDoesNotCancelOrPersist() {
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 1)))
+                .isInstanceOf(PackageNotSellableApplicationException.class);
+
+        verify(cartRepository, never()).findOpenByUserId(any());
+        verify(cartRepository, never()).save(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void unavailablePackageDoesNotCancelOrPersist() {
+        PackageDetailsView unavailable = new PackageDetailsView(
+                PACKAGE_ID,
+                "JO",
+                "الأردن",
+                "Jordan",
+                null,
+                1,
+                DataUnit.GB,
+                7,
+                false,
+                LocationType.COUNTRY,
+                new BigDecimal("9.99"),
+                "USD",
+                "jordan");
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(unavailable));
+
+        assertThatThrownBy(() -> useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 1)))
+                .isInstanceOf(PackageNotSellableApplicationException.class);
+
+        verify(cartRepository, never()).findOpenByUserId(any());
+        verify(cartRepository, never()).save(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void invalidQuantityRejectedByCommand() {
+        assertThatThrownBy(() -> new CheckoutCommand(userId, PACKAGE_ID, 0))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    private PackageDetailsView availablePackage() {
+        return new PackageDetailsView(
+                PACKAGE_ID,
+                "JO",
+                "الأردن",
+                "Jordan",
+                "https://example.com/jo.png",
+                1,
+                DataUnit.GB,
+                7,
+                true,
+                LocationType.COUNTRY,
+                new BigDecimal("9.99"),
+                "USD",
+                "jordan");
+    }
+
+    private static CartItemOffer staleOffer() {
+        return new CartItemOffer(
+                "stale-pkg",
+                "AE",
+                "الإمارات",
+                "UAE",
+                LocationType.COUNTRY,
+                5,
+                DataUnit.GB,
+                30,
+                new BigDecimal("20.00"),
+                "USD");
+    }
+}
