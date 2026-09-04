@@ -122,6 +122,22 @@ public class Cart {
         touch(clock);
     }
 
+    /**
+     * Transitions an open cart to {@link CartStatus#CANCELED}. Used when a new intentional checkout
+     * abandons the previous open shopping intent. Does not affect Orders.
+     */
+    public void cancel(ClockProvider clock) {
+        if (status == CartStatus.CANCELED) {
+            throw new ConflictException("Cart is already canceled");
+        }
+        if (status == CartStatus.CHECKED_OUT) {
+            throw new ConflictException("Checked out cart cannot be canceled");
+        }
+        ensureOpen();
+        this.status = CartStatus.CANCELED;
+        touch(clock);
+    }
+
     public void ensureOpen() {
         if (status != CartStatus.OPEN) {
             throw new ConflictException("Cart cannot be modified because it is not open");
