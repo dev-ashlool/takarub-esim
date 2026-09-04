@@ -5,11 +5,13 @@ import org.springframework.context.annotation.Configuration;
 
 import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.commerce.application.usecase.AddItemToCartUseCase;
+import com.takarub.esim.commerce.application.usecase.CheckoutUseCase;
 import com.takarub.esim.commerce.application.usecase.GetCartUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrCreateCartUseCase;
 import com.takarub.esim.commerce.application.usecase.RemoveCartItemUseCase;
 import com.takarub.esim.commerce.application.usecase.UpdateCartItemQuantityUseCase;
 import com.takarub.esim.commerce.domain.cart.CartRepository;
+import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
@@ -57,5 +59,21 @@ public class CommerceUseCaseConfig {
                                                        CartRepository cartRepository,
                                                        ClockProvider clockProvider) {
         return new RemoveCartItemUseCase(transactionRunner, cartRepository, clockProvider);
+    }
+
+    @Bean
+    public CheckoutUseCase checkoutUseCase(TransactionRunner transactionRunner,
+                                           CartRepository cartRepository,
+                                           OrderRepository orderRepository,
+                                           CatalogBrowsePort catalogBrowsePort,
+                                           IdGenerator idGenerator,
+                                           ClockProvider clockProvider) {
+        return new CheckoutUseCase(
+                transactionRunner,
+                cartRepository,
+                orderRepository,
+                catalogBrowsePort,
+                idGenerator,
+                clockProvider);
     }
 }
