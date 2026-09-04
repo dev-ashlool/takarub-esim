@@ -5,8 +5,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.takarub.esim.commerce.application.command.CheckoutCommand;
+import com.takarub.esim.commerce.application.result.CheckoutPaymentView;
 import com.takarub.esim.commerce.application.result.OrderItemView;
-import com.takarub.esim.commerce.application.result.OrderView;
 import com.takarub.esim.commerce.presentation.checkout.request.CheckoutRequest;
 import com.takarub.esim.commerce.presentation.checkout.response.CheckoutOrderItemResponse;
 import com.takarub.esim.commerce.presentation.checkout.response.CheckoutOrderResponse;
@@ -26,18 +26,22 @@ public class CheckoutMapper {
         return new CheckoutCommand(userId, request.packageId(), request.quantity(), idempotencyKey);
     }
 
-    public CheckoutOrderResponse toResponse(OrderView view) {
+    public CheckoutOrderResponse toResponse(CheckoutPaymentView view) {
         List<CheckoutOrderItemResponse> items = view.items().stream()
                 .map(this::toItemResponse)
                 .toList();
         return new CheckoutOrderResponse(
-                view.id().value().toString(),
-                view.status().name(),
+                view.orderId().value().toString(),
+                view.orderStatus().name(),
                 items,
                 view.totalAmount(),
                 view.currency(),
-                view.createdAt(),
-                view.updatedAt());
+                view.orderCreatedAt(),
+                view.orderUpdatedAt(),
+                view.paymentAttemptId().value().toString(),
+                view.paymentAttemptStatus().name(),
+                view.externalOrderId(),
+                view.externalTransactionId());
     }
 
     private CheckoutOrderItemResponse toItemResponse(OrderItemView item) {

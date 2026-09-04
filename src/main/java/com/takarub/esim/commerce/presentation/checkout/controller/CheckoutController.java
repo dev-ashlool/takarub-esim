@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.takarub.esim.commerce.application.usecase.CheckoutUseCase;
+import com.takarub.esim.commerce.application.usecase.CheckoutAndStartPaymentUseCase;
 import com.takarub.esim.commerce.presentation.checkout.mapper.CheckoutMapper;
 import com.takarub.esim.commerce.presentation.checkout.request.CheckoutRequest;
 import com.takarub.esim.commerce.presentation.checkout.response.CheckoutOrderResponse;
@@ -23,41 +23,43 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**
- * MVP Checkout REST API. Creates (or returns an existing idempotent) Order in {@code CREATED}
- * status for one selected package. Does not start payment.
+ * MVP Checkout REST API. Creates (or reuses an idempotent) Order and starts the initial payment
+ * attempt in one request. Does not accept a separate Start Payment call for the happy path.
  */
 @RestController
 @RequestMapping("/api/v1/checkout")
-@Tag(name = "Checkout", description = "Authenticated one-package checkout")
+@Tag(name = "Checkout", description = "Authenticated one-package checkout with initial payment start")
 public class CheckoutController {
 
-    private final CheckoutUseCase checkoutUseCase;
+    private final CheckoutAndStartPaymentUseCase checkoutAndStartPaymentUseCase;
     private final CheckoutMapper checkoutMapper;
     private final SecurityContextProvider securityContextProvider;
 
-    public CheckoutController(CheckoutUseCase checkoutUseCase,
+    public CheckoutController(CheckoutAndStartPaymentUseCase checkoutAndStartPaymentUseCase,
                               CheckoutMapper checkoutMapper,
                               SecurityContextProvider securityContextProvider) {
-        this.checkoutUseCase = checkoutUseCase;
+        this.checkoutAndStartPaymentUseCase = checkoutAndStartPaymentUseCase;
         this.checkoutMapper = checkoutMapper;
         this.securityContextProvider = securityContextProvider;
     }
 
     @PostMapping
     @Operation(
-            summary = "Checkout selected package",
-            description = "Creates an Order for the authenticated user from one catalog package. "
-                    + "Requires header Idempotency-Key: a client-generated identifier for this "
-                    + "intentional checkout action (max 36 characters). Reuse the exact same key "
-                    + "when retrying the same action; use a new key for a new intentional purchase. "
-                    + "Does not accept userId, cartId, or prices from the client.")
+            summary = "Checkout selected package and start payment",
+            description = "Creates an Order for the authenticated user from one catalog package and "
+                    + "starts the initial payment attempt in the same transaction. Requires header "
+                    + "Idempotency-Key: a client-generated identifier for this intentional checkout "
+                    + "action (max 36 characters). Reuse the exact same key when retrying the same "
+                    + "action; use a new key for a new intentional purchase. Does not accept userId, "
+                    + "cartId, or prices from the client. Payment failure retry is a separate action.")
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",
-                    description = "Order created or existing idempotent Order returned",
+                    description = "Payment-ready Order returned (created or idempotent reuse)",
                     content = @Content(schema = @Schema(implementation = CheckoutOrderResponse.class))),
             @ApiResponse(responseCode = "400", description = "Invalid request or Idempotency-Key"),
             @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "409", description = "Conflicting order/payment state"),
             @ApiResponse(responseCode = "422", description = "Package not sellable or business rule violation")
     })
     public ResponseEntity<CheckoutOrderResponse> checkout(
@@ -65,7 +67,8 @@ public class CheckoutController {
             @Valid @RequestBody CheckoutRequest request) {
         String userId = requireAuthenticatedUserId();
         return ResponseEntity.ok(checkoutMapper.toResponse(
-                checkoutUseCase.execute(checkoutMapper.toCommand(userId, request, idempotencyKey))));
+                checkoutAndStartPaymentUseCase.execute(
+                        checkoutMapper.toCommand(userId, request, idempotencyKey))));
     }
 
     private String requireAuthenticatedUserId() {

@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.commerce.application.usecase.AddItemToCartUseCase;
+import com.takarub.esim.commerce.application.usecase.CheckoutAndStartPaymentUseCase;
 import com.takarub.esim.commerce.application.usecase.CheckoutUseCase;
 import com.takarub.esim.commerce.application.usecase.GetCartUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrCreateCartUseCase;
@@ -89,6 +90,25 @@ public class CommerceUseCaseConfig {
                 transactionRunner,
                 orderRepository,
                 paymentAttemptRepository,
+                idGenerator,
+                clockProvider);
+    }
+
+    @Bean
+    public CheckoutAndStartPaymentUseCase checkoutAndStartPaymentUseCase(
+            TransactionRunner transactionRunner,
+            CartRepository cartRepository,
+            OrderRepository orderRepository,
+            PaymentAttemptRepository paymentAttemptRepository,
+            CatalogBrowsePort catalogBrowsePort,
+            IdGenerator idGenerator,
+            ClockProvider clockProvider) {
+        return new CheckoutAndStartPaymentUseCase(
+                transactionRunner,
+                cartRepository,
+                orderRepository,
+                paymentAttemptRepository,
+                catalogBrowsePort,
                 idGenerator,
                 clockProvider);
     }

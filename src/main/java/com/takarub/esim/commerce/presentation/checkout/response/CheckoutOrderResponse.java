@@ -5,7 +5,8 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * REST representation of a checkout Order result. Omits cartId, userId, and checkoutRequestId.
+ * REST representation of initial checkout + payment-start result. Omits cartId, userId, and
+ * checkoutRequestId. Includes provider-neutral payment attempt identifiers only.
  */
 public record CheckoutOrderResponse(
         String orderId,
@@ -14,5 +15,9 @@ public record CheckoutOrderResponse(
         BigDecimal totalAmount,
         String currency,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String paymentAttemptId,
+        String paymentAttemptStatus,
+        String externalOrderId,
+        String externalTransactionId) {
 }
