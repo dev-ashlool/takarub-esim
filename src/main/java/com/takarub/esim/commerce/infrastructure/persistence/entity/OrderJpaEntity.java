@@ -40,6 +40,9 @@ public class OrderJpaEntity {
     @Column(name = "user_id", length = 36, nullable = false, updatable = false)
     private String userId;
 
+    @Column(name = "checkout_request_id", length = 36, nullable = false, updatable = false)
+    private String checkoutRequestId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 32, nullable = false)
     private OrderStatus status;
@@ -63,6 +66,7 @@ public class OrderJpaEntity {
             String id,
             String cartId,
             String userId,
+            String checkoutRequestId,
             OrderStatus status,
             BigDecimal totalAmount,
             String currency,
@@ -71,6 +75,7 @@ public class OrderJpaEntity {
         this.id = id;
         this.cartId = cartId;
         this.userId = userId;
+        this.checkoutRequestId = checkoutRequestId;
         this.status = status;
         this.totalAmount = totalAmount;
         this.currency = currency;

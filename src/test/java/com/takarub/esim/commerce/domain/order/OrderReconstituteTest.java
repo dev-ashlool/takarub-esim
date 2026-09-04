@@ -21,6 +21,7 @@ class OrderReconstituteTest {
         OrderId id = OrderId.of(UUID.randomUUID());
         CartId cartId = CartId.of(UUID.randomUUID());
         UserId userId = UserId.of(UUID.randomUUID());
+        CheckoutRequestId checkoutRequestId = CheckoutRequestId.of(UUID.randomUUID().toString());
         Instant createdAt = Instant.parse("2026-01-01T00:00:00Z");
         Instant updatedAt = Instant.parse("2026-01-05T08:00:00Z");
         BigDecimal total = new BigDecimal("29.98");
@@ -44,6 +45,7 @@ class OrderReconstituteTest {
                 updatedAt,
                 cartId,
                 userId,
+                checkoutRequestId,
                 OrderStatus.PENDING_PAYMENT,
                 List.of(item),
                 total,
@@ -52,6 +54,7 @@ class OrderReconstituteTest {
         assertThat(order.id()).isEqualTo(id);
         assertThat(order.cartId()).isEqualTo(cartId);
         assertThat(order.userId()).isEqualTo(userId);
+        assertThat(order.checkoutRequestId()).isEqualTo(checkoutRequestId);
         assertThat(order.status()).isEqualTo(OrderStatus.PENDING_PAYMENT);
         assertThat(order.totalAmount()).isEqualByComparingTo(total);
         assertThat(order.currency()).isEqualTo("USD");
@@ -76,12 +79,14 @@ class OrderReconstituteTest {
 
     @Test
     void reconstitutesTerminalPaidStatus() {
+        CheckoutRequestId checkoutRequestId = CheckoutRequestId.of(UUID.randomUUID().toString());
         Order order = Order.reconstitute(
                 OrderId.of(UUID.randomUUID()),
                 Instant.parse("2026-01-01T00:00:00Z"),
                 Instant.parse("2026-01-02T00:00:00Z"),
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                checkoutRequestId,
                 OrderStatus.PAID,
                 List.of(OrderItem.reconstitute(
                         "pkg-9",
@@ -99,6 +104,7 @@ class OrderReconstituteTest {
                 "USD");
 
         assertThat(order.status()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.checkoutRequestId()).isEqualTo(checkoutRequestId);
         assertThat(order.itemsView()).hasSize(1);
     }
 }

@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.takarub.esim.commerce.domain.cart.CartId;
+import com.takarub.esim.commerce.domain.order.CheckoutRequestId;
 import com.takarub.esim.commerce.domain.order.Order;
 import com.takarub.esim.commerce.domain.order.OrderId;
 import com.takarub.esim.commerce.domain.order.OrderItem;
@@ -26,6 +27,7 @@ public class OrderPersistenceMapper {
                 order.id().value().toString(),
                 order.cartId().value().toString(),
                 order.userId().value().toString(),
+                order.checkoutRequestId().value(),
                 order.status(),
                 order.totalAmount(),
                 order.currency(),
@@ -73,6 +75,7 @@ public class OrderPersistenceMapper {
                 entity.getUpdatedAt(),
                 CartId.of(entity.getCartId()),
                 UserId.of(entity.getUserId()),
+                CheckoutRequestId.of(entity.getCheckoutRequestId()),
                 entity.getStatus(),
                 items,
                 entity.getTotalAmount(),

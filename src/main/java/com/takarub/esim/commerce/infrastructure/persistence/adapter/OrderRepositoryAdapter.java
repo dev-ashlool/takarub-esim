@@ -5,11 +5,13 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 import com.takarub.esim.commerce.domain.cart.CartId;
+import com.takarub.esim.commerce.domain.order.CheckoutRequestId;
 import com.takarub.esim.commerce.domain.order.Order;
 import com.takarub.esim.commerce.domain.order.OrderId;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.infrastructure.persistence.mapper.OrderPersistenceMapper;
 import com.takarub.esim.commerce.infrastructure.persistence.repository.OrderJpaRepository;
+import com.takarub.esim.identity.domain.user.UserId;
 
 /**
  * Outbound adapter implementing the {@link OrderRepository} domain port over Spring Data JPA. Pure
@@ -39,5 +41,13 @@ public class OrderRepositoryAdapter implements OrderRepository {
     @Override
     public Optional<Order> findByCartId(CartId cartId) {
         return orderJpaRepository.findByCartId(cartId.value().toString()).map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<Order> findByUserIdAndCheckoutRequestId(UserId userId,
+                                                            CheckoutRequestId checkoutRequestId) {
+        return orderJpaRepository
+                .findByUserIdAndCheckoutRequestId(userId.value().toString(), checkoutRequestId.value())
+                .map(mapper::toDomain);
     }
 }

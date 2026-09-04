@@ -45,6 +45,7 @@ class OrderLifecycleTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(snapshot()));
     }
 

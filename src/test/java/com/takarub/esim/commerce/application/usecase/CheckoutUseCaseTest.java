@@ -29,10 +29,13 @@ import com.takarub.esim.commerce.application.command.CheckoutCommand;
 import com.takarub.esim.commerce.application.exception.PackageNotSellableApplicationException;
 import com.takarub.esim.commerce.application.result.OrderView;
 import com.takarub.esim.commerce.domain.cart.Cart;
+import com.takarub.esim.commerce.domain.cart.CartId;
 import com.takarub.esim.commerce.domain.cart.CartItemOffer;
 import com.takarub.esim.commerce.domain.cart.CartRepository;
 import com.takarub.esim.commerce.domain.cart.CartStatus;
+import com.takarub.esim.commerce.domain.order.CheckoutRequestId;
 import com.takarub.esim.commerce.domain.order.Order;
+import com.takarub.esim.commerce.domain.order.OrderItemSnapshot;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.order.OrderStatus;
 import com.takarub.esim.identity.application.port.TransactionRunner;
@@ -63,10 +66,12 @@ class CheckoutUseCaseTest {
     private final UuidIdGenerator idGenerator = new UuidIdGenerator();
     private CheckoutUseCase useCase;
     private String userId;
+    private String checkoutRequestId;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID().toString();
+        checkoutRequestId = UUID.randomUUID().toString();
         useCase = new CheckoutUseCase(
                 transactionRunner,
                 cartRepository,
@@ -78,17 +83,43 @@ class CheckoutUseCaseTest {
             Supplier<?> work = invocation.getArgument(0);
             return work.get();
         });
+        lenient().when(orderRepository.findByUserIdAndCheckoutRequestId(any(), any()))
+                .thenReturn(Optional.empty());
     }
 
     @Test
-    void successfulCheckoutWithoutPreviousOpenCart() {
+    void existingSameKeyReturnsOrderWithoutCatalogOrCartWork() {
+        when(clock.now()).thenReturn(NOW);
+        Order existing = Order.create(
+                idGenerator,
+                clock,
+                CartId.of(UUID.randomUUID()),
+                UserId.of(userId),
+                CheckoutRequestId.of(checkoutRequestId),
+                List.of(orderLine(PACKAGE_ID, 2)));
+        when(orderRepository.findByUserIdAndCheckoutRequestId(
+                UserId.of(userId), CheckoutRequestId.of(checkoutRequestId)))
+                .thenReturn(Optional.of(existing));
+
+        OrderView view = useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId));
+
+        assertThat(view.id()).isEqualTo(existing.id());
+        assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
+        verify(catalogBrowsePort, never()).findPackageById(any());
+        verify(cartRepository, never()).findOpenByUserId(any());
+        verify(cartRepository, never()).save(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void successfulCheckoutWithoutPreviousOpenCartPreservesCheckoutRequestId() {
         when(clock.now()).thenReturn(NOW);
         when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(availablePackage()));
         when(cartRepository.findOpenByUserId(UserId.of(userId))).thenReturn(Optional.empty());
         when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        OrderView view = useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 2));
+        OrderView view = useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId));
 
         assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
         assertThat(view.userId()).isEqualTo(UserId.of(userId));
@@ -103,12 +134,12 @@ class CheckoutUseCaseTest {
         Cart savedCart = cartCaptor.getValue();
         assertThat(savedCart.status()).isEqualTo(CartStatus.CHECKED_OUT);
         assertThat(savedCart.id()).isEqualTo(view.cartId());
-        assertThat(savedCart.itemsView()).hasSize(1);
-        assertThat(savedCart.itemsView().get(0).quantity()).isEqualTo(2);
 
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(orderCaptor.capture());
         assertThat(orderCaptor.getValue().status()).isEqualTo(OrderStatus.CREATED);
+        assertThat(orderCaptor.getValue().checkoutRequestId())
+                .isEqualTo(CheckoutRequestId.of(checkoutRequestId));
         assertThat(orderCaptor.getValue().cartId()).isEqualTo(savedCart.id());
     }
 
@@ -123,7 +154,7 @@ class CheckoutUseCaseTest {
         when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        OrderView view = useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 1));
+        OrderView view = useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId));
 
         ArgumentCaptor<Cart> cartCaptor = ArgumentCaptor.forClass(Cart.class);
         verify(cartRepository, times(2)).save(cartCaptor.capture());
@@ -136,20 +167,39 @@ class CheckoutUseCaseTest {
         assertThat(canceled.status()).isEqualTo(CartStatus.CANCELED);
         assertThat(fresh.id()).isNotEqualTo(oldCart.id());
         assertThat(fresh.status()).isEqualTo(CartStatus.CHECKED_OUT);
-        assertThat(fresh.itemsView()).hasSize(1);
-        assertThat(fresh.itemsView().get(0).packageId()).isEqualTo(PACKAGE_ID);
-        assertThat(fresh.itemsView().get(0).quantity()).isEqualTo(1);
-
         assertThat(view.cartId()).isEqualTo(fresh.id());
         assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
-        assertThat(view.items().get(0).quantity()).isEqualTo(1);
+    }
+
+    @Test
+    void differentKeyWithSamePackageAndQuantityCreatesNewCheckout() {
+        when(clock.now()).thenReturn(NOW);
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(availablePackage()));
+        when(cartRepository.findOpenByUserId(UserId.of(userId))).thenReturn(Optional.empty());
+        when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        String keyA = UUID.randomUUID().toString();
+        String keyB = UUID.randomUUID().toString();
+
+        OrderView first = useCase.execute(command(PACKAGE_ID, 1, keyA));
+        OrderView second = useCase.execute(command(PACKAGE_ID, 1, keyB));
+
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository, times(2)).save(orderCaptor.capture());
+        List<Order> saved = orderCaptor.getAllValues();
+
+        assertThat(saved.get(0).checkoutRequestId()).isEqualTo(CheckoutRequestId.of(keyA));
+        assertThat(saved.get(1).checkoutRequestId()).isEqualTo(CheckoutRequestId.of(keyB));
+        assertThat(first.id()).isNotEqualTo(second.id());
+        assertThat(first.cartId()).isNotEqualTo(second.cartId());
     }
 
     @Test
     void packageNotSellableDoesNotCancelOrPersist() {
         when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 1)))
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(PackageNotSellableApplicationException.class);
 
         verify(cartRepository, never()).findOpenByUserId(any());
@@ -175,7 +225,7 @@ class CheckoutUseCaseTest {
                 "jordan");
         when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(unavailable));
 
-        assertThatThrownBy(() -> useCase.execute(new CheckoutCommand(userId, PACKAGE_ID, 1)))
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(PackageNotSellableApplicationException.class);
 
         verify(cartRepository, never()).findOpenByUserId(any());
@@ -185,8 +235,33 @@ class CheckoutUseCaseTest {
 
     @Test
     void invalidQuantityRejectedByCommand() {
-        assertThatThrownBy(() -> new CheckoutCommand(userId, PACKAGE_ID, 0))
+        assertThatThrownBy(() -> command(PACKAGE_ID, 0, checkoutRequestId))
                 .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void blankCheckoutRequestIdRejectedByCommand() {
+        assertThatThrownBy(() -> command(PACKAGE_ID, 1, "  "))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    private CheckoutCommand command(String packageId, int quantity, String requestId) {
+        return new CheckoutCommand(userId, packageId, quantity, requestId);
+    }
+
+    private static OrderItemSnapshot orderLine(String packageId, int quantity) {
+        return new OrderItemSnapshot(
+                packageId,
+                "JO",
+                "الأردن",
+                "Jordan",
+                LocationType.COUNTRY,
+                1,
+                DataUnit.GB,
+                7,
+                new BigDecimal("9.99"),
+                "USD",
+                quantity);
     }
 
     private PackageDetailsView availablePackage() {

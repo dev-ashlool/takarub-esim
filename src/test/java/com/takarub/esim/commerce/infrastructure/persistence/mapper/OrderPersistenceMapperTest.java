@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import com.takarub.esim.commerce.domain.cart.CartId;
+import com.takarub.esim.commerce.domain.order.CheckoutRequestId;
 import com.takarub.esim.commerce.domain.order.Order;
 import com.takarub.esim.commerce.domain.order.OrderItemSnapshot;
 import com.takarub.esim.commerce.domain.order.OrderStatus;
@@ -36,12 +37,14 @@ class OrderPersistenceMapperTest {
     private final ClockProvider clock = new SystemClockProvider(Clock.fixed(FIXED, ZoneOffset.UTC));
 
     @Test
-    void roundTripsOrderHeaderAndItemsWithoutLineTotalColumn() {
+    void roundTripsOrderHeaderAndItemsIncludingCheckoutRequestId() {
+        CheckoutRequestId checkoutRequestId = CheckoutRequestId.of(UUID.randomUUID().toString());
         Order order = Order.create(
                 idGenerator,
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                checkoutRequestId,
                 List.of(
                         snapshot("pkg-1", "10.00", 1),
                         snapshot("pkg-2", "4.50", 2)));
@@ -49,10 +52,12 @@ class OrderPersistenceMapperTest {
         OrderJpaEntity entity = mapper.toEntity(order);
         Order reconstituted = mapper.toDomain(entity);
 
+        assertThat(entity.getCheckoutRequestId()).isEqualTo(checkoutRequestId.value());
         assertThat(entity.getItems()).hasSize(2);
         assertThat(reconstituted.id()).isEqualTo(order.id());
         assertThat(reconstituted.cartId()).isEqualTo(order.cartId());
         assertThat(reconstituted.userId()).isEqualTo(order.userId());
+        assertThat(reconstituted.checkoutRequestId()).isEqualTo(checkoutRequestId);
         assertThat(reconstituted.status()).isEqualTo(OrderStatus.CREATED);
         assertThat(reconstituted.totalAmount()).isEqualByComparingTo(order.totalAmount());
         assertThat(reconstituted.currency()).isEqualTo("USD");

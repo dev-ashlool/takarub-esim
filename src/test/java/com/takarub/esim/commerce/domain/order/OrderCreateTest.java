@@ -35,15 +35,17 @@ class OrderCreateTest {
     void createStartsCreatedWithGeneratedIdAndDerivedTotals() {
         CartId cartId = CartId.of(UUID.randomUUID());
         UserId userId = UserId.of(UUID.randomUUID());
+        CheckoutRequestId checkoutRequestId = CheckoutRequestId.of(UUID.randomUUID().toString());
         OrderItemSnapshot line = snapshot("pkg-1", "USD", "9.99", 2);
 
-        Order order = Order.create(idGenerator, clock, cartId, userId, List.of(line));
+        Order order = Order.create(idGenerator, clock, cartId, userId, checkoutRequestId, List.of(line));
 
         assertThat(order.status()).isEqualTo(OrderStatus.CREATED);
         assertThat(order.id()).isNotNull();
         assertThat(order.id().value()).isNotNull();
         assertThat(order.cartId()).isEqualTo(cartId);
         assertThat(order.userId()).isEqualTo(userId);
+        assertThat(order.checkoutRequestId()).isEqualTo(checkoutRequestId);
         assertThat(order.createdAt()).isEqualTo(FIXED);
         assertThat(order.updatedAt()).isEqualTo(FIXED);
         assertThat(order.currency()).isEqualTo("USD");
@@ -60,6 +62,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(
                         snapshot("pkg-1", "USD", "10.00", 1),
                         snapshot("pkg-2", "USD", "5.50", 3)));
@@ -76,6 +79,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(snapshot("pkg-1", "USD", "10.00", 1)));
 
         assertThatThrownBy(() -> order.itemsView().add(order.itemsView().get(0)))
@@ -89,6 +93,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("at least one item");
@@ -101,6 +106,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 null))
                 .isInstanceOf(BusinessException.class);
     }
@@ -112,6 +118,7 @@ class OrderCreateTest {
                 clock,
                 null,
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(snapshot("pkg-1", "USD", "10.00", 1))))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Cart id");
@@ -124,9 +131,23 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 null,
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(snapshot("pkg-1", "USD", "10.00", 1))))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("User id");
+    }
+
+    @Test
+    void nullCheckoutRequestIdRejected() {
+        assertThatThrownBy(() -> Order.create(
+                idGenerator,
+                clock,
+                CartId.of(UUID.randomUUID()),
+                UserId.of(UUID.randomUUID()),
+                null,
+                List.of(snapshot("pkg-1", "USD", "10.00", 1))))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Checkout request id");
     }
 
     @Test
@@ -136,6 +157,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(snapshot("pkg-1", "USD", "10.00", 0))))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("quantity");
@@ -148,6 +170,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(snapshot("pkg-1", "USD", "0", 1))))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("unitPrice");
@@ -160,6 +183,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(
                         snapshot("pkg-1", "USD", "10.00", 1),
                         snapshot("pkg-2", "JOD", "5.00", 1))))
@@ -187,6 +211,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 List.of(invalid)))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("packageId");
@@ -213,6 +238,7 @@ class OrderCreateTest {
                 clock,
                 CartId.of(UUID.randomUUID()),
                 UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
                 missingLocation))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("locationType");

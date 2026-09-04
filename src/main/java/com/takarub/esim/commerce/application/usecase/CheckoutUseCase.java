@@ -11,6 +11,7 @@ import com.takarub.esim.commerce.domain.cart.Cart;
 import com.takarub.esim.commerce.domain.cart.CartItem;
 import com.takarub.esim.commerce.domain.cart.CartItemOffer;
 import com.takarub.esim.commerce.domain.cart.CartRepository;
+import com.takarub.esim.commerce.domain.order.CheckoutRequestId;
 import com.takarub.esim.commerce.domain.order.Order;
 import com.takarub.esim.commerce.domain.order.OrderItemSnapshot;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
@@ -21,7 +22,8 @@ import com.takarub.esim.identity.shared.time.ClockProvider;
 
 /**
  * One-package MVP checkout: cancel any OPEN cart, create a fresh checked-out cart, create Order
- * {@code CREATED}. Does not start payment or modify existing Orders.
+ * {@code CREATED}. Idempotent on {@code (userId, checkoutRequestId)}. Does not start payment or
+ * modify existing Orders.
  */
 public class CheckoutUseCase {
 
@@ -48,28 +50,39 @@ public class CheckoutUseCase {
 
     public OrderView execute(CheckoutCommand command) {
         return transactionRunner.execute(() -> {
-            PackageDetailsView packageDetails = loadSellablePackage(command.packageId());
-            CartItemOffer offer = toOffer(packageDetails);
             UserId userId = UserId.of(command.userId());
+            CheckoutRequestId checkoutRequestId = CheckoutRequestId.of(command.checkoutRequestId());
 
-            cartRepository.findOpenByUserId(userId).ifPresent(oldCart -> {
-                oldCart.cancel(clock);
-                cartRepository.save(oldCart);
-            });
-
-            Cart freshCart = Cart.create(idGenerator, clock, userId);
-            freshCart.addItem(offer, command.quantity(), clock);
-            freshCart.checkout(clock);
-
-            List<OrderItemSnapshot> snapshots = freshCart.itemsView().stream()
-                    .map(CheckoutUseCase::toOrderItemSnapshot)
-                    .toList();
-
-            Order order = Order.create(idGenerator, clock, freshCart.id(), userId, snapshots);
-            cartRepository.save(freshCart);
-            orderRepository.save(order);
-            return OrderView.from(order);
+            return orderRepository.findByUserIdAndCheckoutRequestId(userId, checkoutRequestId)
+                    .map(OrderView::from)
+                    .orElseGet(() -> createFreshCheckout(command, userId, checkoutRequestId));
         });
+    }
+
+    private OrderView createFreshCheckout(CheckoutCommand command,
+                                          UserId userId,
+                                          CheckoutRequestId checkoutRequestId) {
+        PackageDetailsView packageDetails = loadSellablePackage(command.packageId());
+        CartItemOffer offer = toOffer(packageDetails);
+
+        cartRepository.findOpenByUserId(userId).ifPresent(oldCart -> {
+            oldCart.cancel(clock);
+            cartRepository.save(oldCart);
+        });
+
+        Cart freshCart = Cart.create(idGenerator, clock, userId);
+        freshCart.addItem(offer, command.quantity(), clock);
+        freshCart.checkout(clock);
+
+        List<OrderItemSnapshot> snapshots = freshCart.itemsView().stream()
+                .map(CheckoutUseCase::toOrderItemSnapshot)
+                .toList();
+
+        Order order = Order.create(
+                idGenerator, clock, freshCart.id(), userId, checkoutRequestId, snapshots);
+        cartRepository.save(freshCart);
+        orderRepository.save(order);
+        return OrderView.from(order);
     }
 
     private PackageDetailsView loadSellablePackage(String packageId) {

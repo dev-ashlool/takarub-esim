@@ -28,6 +28,7 @@ public class Order {
     private final OrderId id;
     private final CartId cartId;
     private final UserId userId;
+    private final CheckoutRequestId checkoutRequestId;
     private OrderStatus status;
     private final List<OrderItem> items;
     private final BigDecimal totalAmount;
@@ -36,12 +37,14 @@ public class Order {
     private Instant updatedAt;
 
     private Order(OrderId id, Instant createdAt, Instant updatedAt, CartId cartId, UserId userId,
-                  OrderStatus status, List<OrderItem> items, BigDecimal totalAmount, String currency) {
+                  CheckoutRequestId checkoutRequestId, OrderStatus status, List<OrderItem> items,
+                  BigDecimal totalAmount, String currency) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
         this.cartId = Objects.requireNonNull(cartId, "cartId must not be null");
         this.userId = Objects.requireNonNull(userId, "userId must not be null");
+        this.checkoutRequestId = Objects.requireNonNull(checkoutRequestId, "checkoutRequestId must not be null");
         this.status = Objects.requireNonNull(status, "status must not be null");
         this.items = new ArrayList<>(items);
         this.totalAmount = Objects.requireNonNull(totalAmount, "totalAmount must not be null");
@@ -52,12 +55,16 @@ public class Order {
      * Creates a new {@link OrderStatus#CREATED} order from commercial line snapshots.
      */
     public static Order create(IdGenerator idGenerator, ClockProvider clock, CartId cartId,
-                               UserId userId, List<OrderItemSnapshot> lines) {
+                               UserId userId, CheckoutRequestId checkoutRequestId,
+                               List<OrderItemSnapshot> lines) {
         if (cartId == null) {
             throw new ValidationException("Cart id is required to create an order");
         }
         if (userId == null) {
             throw new ValidationException("User id is required to create an order");
+        }
+        if (checkoutRequestId == null) {
+            throw new ValidationException("Checkout request id is required to create an order");
         }
         if (lines == null || lines.isEmpty()) {
             throw new BusinessException("Order must contain at least one item");
@@ -88,6 +95,7 @@ public class Order {
                 now,
                 cartId,
                 userId,
+                checkoutRequestId,
                 OrderStatus.CREATED,
                 orderItems,
                 total,
@@ -99,14 +107,15 @@ public class Order {
      * the infrastructure persistence mapper.
      */
     public static Order reconstitute(OrderId id, Instant createdAt, Instant updatedAt, CartId cartId,
-                                     UserId userId, OrderStatus status, List<OrderItem> items,
-                                     BigDecimal totalAmount, String currency) {
+                                     UserId userId, CheckoutRequestId checkoutRequestId, OrderStatus status,
+                                     List<OrderItem> items, BigDecimal totalAmount, String currency) {
         return new Order(
                 id,
                 createdAt,
                 updatedAt,
                 cartId,
                 userId,
+                checkoutRequestId,
                 status,
                 items == null ? List.of() : items,
                 totalAmount,
@@ -174,6 +183,10 @@ public class Order {
 
     public UserId userId() {
         return userId;
+    }
+
+    public CheckoutRequestId checkoutRequestId() {
+        return checkoutRequestId;
     }
 
     public OrderStatus status() {

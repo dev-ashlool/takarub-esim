@@ -19,4 +19,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderJpaEntity, String
 
     @EntityGraph(attributePaths = "items")
     Optional<OrderJpaEntity> findByCartId(String cartId);
+
+    @EntityGraph(attributePaths = "items")
+    Optional<OrderJpaEntity> findByUserIdAndCheckoutRequestId(String userId, String checkoutRequestId);
 }
