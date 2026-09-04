@@ -9,9 +9,11 @@ import com.takarub.esim.commerce.application.usecase.CheckoutUseCase;
 import com.takarub.esim.commerce.application.usecase.GetCartUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrCreateCartUseCase;
 import com.takarub.esim.commerce.application.usecase.RemoveCartItemUseCase;
+import com.takarub.esim.commerce.application.usecase.StartPaymentUseCase;
 import com.takarub.esim.commerce.application.usecase.UpdateCartItemQuantityUseCase;
 import com.takarub.esim.commerce.domain.cart.CartRepository;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
+import com.takarub.esim.commerce.domain.payment.PaymentAttemptRepository;
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
@@ -73,6 +75,20 @@ public class CommerceUseCaseConfig {
                 cartRepository,
                 orderRepository,
                 catalogBrowsePort,
+                idGenerator,
+                clockProvider);
+    }
+
+    @Bean
+    public StartPaymentUseCase startPaymentUseCase(TransactionRunner transactionRunner,
+                                                   OrderRepository orderRepository,
+                                                   PaymentAttemptRepository paymentAttemptRepository,
+                                                   IdGenerator idGenerator,
+                                                   ClockProvider clockProvider) {
+        return new StartPaymentUseCase(
+                transactionRunner,
+                orderRepository,
+                paymentAttemptRepository,
                 idGenerator,
                 clockProvider);
     }
