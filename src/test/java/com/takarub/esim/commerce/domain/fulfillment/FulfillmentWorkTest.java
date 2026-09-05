@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import com.takarub.esim.commerce.domain.order.OrderId;
+import com.takarub.esim.identity.shared.exception.ConflictException;
 import com.takarub.esim.identity.shared.exception.ValidationException;
 import com.takarub.esim.identity.shared.id.UuidIdGenerator;
 import com.takarub.esim.identity.shared.time.SystemClockProvider;
@@ -19,10 +20,13 @@ class FulfillmentWorkTest {
 
     private static final Instant NOW = Instant.parse("2026-09-05T12:00:00Z");
     private static final Instant CLAIMED = Instant.parse("2026-09-05T12:05:00Z");
+    private static final Instant LATER = Instant.parse("2026-09-05T12:10:00Z");
 
     private final UuidIdGenerator idGenerator = new UuidIdGenerator();
     private final SystemClockProvider clock =
             new SystemClockProvider(Clock.fixed(NOW, ZoneOffset.UTC));
+    private final SystemClockProvider laterClock =
+            new SystemClockProvider(Clock.fixed(LATER, ZoneOffset.UTC));
 
     @Test
     void pendingRequiresSupplierSourcing() {
@@ -191,6 +195,32 @@ class FulfillmentWorkTest {
     }
 
     @Test
+    void reconstituteFulfilledRequiresClaimedAt() {
+        assertThatThrownBy(() -> reconstitute(
+                "LIKE_CARD",
+                "100",
+                FulfillmentStatus.FULFILLED,
+                null,
+                null,
+                null))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("claimedAt");
+    }
+
+    @Test
+    void reconstituteFulfilledRejectsErrorFields() {
+        assertThatThrownBy(() -> reconstitute(
+                "LIKE_CARD",
+                "100",
+                FulfillmentStatus.FULFILLED,
+                CLAIMED,
+                "X",
+                null))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("lastErrorCode");
+    }
+
+    @Test
     void reconstituteUnknownRequiresSupplierSourcing() {
         assertThatThrownBy(() -> reconstitute(
                 null,
@@ -250,6 +280,88 @@ class FulfillmentWorkTest {
         assertThat(blocked.status()).isEqualTo(FulfillmentStatus.BLOCKED);
         assertThat(blocked.supplierKey()).isNull();
         assertThat(blocked.remoteProductId()).isNull();
+    }
+
+    @Test
+    void markFulfilledFromProcessing() {
+        FulfillmentWork work = processingWork();
+        Instant claimedAt = work.claimedAt();
+
+        work.markFulfilled(laterClock);
+
+        assertThat(work.status()).isEqualTo(FulfillmentStatus.FULFILLED);
+        assertThat(work.claimedAt()).isEqualTo(claimedAt);
+        assertThat(work.lastErrorCode()).isNull();
+        assertThat(work.lastErrorMessage()).isNull();
+        assertThat(work.updatedAt()).isEqualTo(LATER);
+    }
+
+    @Test
+    void markUnknownFromProcessing() {
+        FulfillmentWork work = processingWork();
+        Instant claimedAt = work.claimedAt();
+
+        work.markUnknown(laterClock, "TIMEOUT", "Ambiguous outcome");
+
+        assertThat(work.status()).isEqualTo(FulfillmentStatus.UNKNOWN);
+        assertThat(work.claimedAt()).isEqualTo(claimedAt);
+        assertThat(work.lastErrorCode()).isEqualTo("TIMEOUT");
+        assertThat(work.lastErrorMessage()).isEqualTo("Ambiguous outcome");
+        assertThat(work.updatedAt()).isEqualTo(LATER);
+    }
+
+    @Test
+    void markBlockedFromProcessing() {
+        FulfillmentWork work = processingWork();
+        Instant claimedAt = work.claimedAt();
+
+        work.markBlocked(laterClock, "SUPPLIER_REJECTED", "Rejected");
+
+        assertThat(work.status()).isEqualTo(FulfillmentStatus.BLOCKED);
+        assertThat(work.claimedAt()).isEqualTo(claimedAt);
+        assertThat(work.lastErrorCode()).isEqualTo("SUPPLIER_REJECTED");
+        assertThat(work.lastErrorMessage()).isEqualTo("Rejected");
+        assertThat(work.updatedAt()).isEqualTo(LATER);
+    }
+
+    @Test
+    void markTransitionsRejectNonProcessing() {
+        FulfillmentWork pending = FulfillmentWork.pending(
+                idGenerator, clock, OrderId.of(UUID.randomUUID()), "LIKE_CARD", "5653");
+
+        assertThatThrownBy(() -> pending.markFulfilled(laterClock))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("PROCESSING");
+        assertThatThrownBy(() -> pending.markUnknown(laterClock, "X", "Y"))
+                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> pending.markBlocked(laterClock, "X", "Y"))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void markUnknownAndBlockedRejectBlankErrors() {
+        FulfillmentWork work = processingWork();
+
+        assertThatThrownBy(() -> work.markUnknown(laterClock, " ", "msg"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("lastErrorCode");
+        assertThatThrownBy(() -> work.markBlocked(laterClock, "CODE", " "))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("lastErrorMessage");
+    }
+
+    private FulfillmentWork processingWork() {
+        return FulfillmentWork.reconstitute(
+                FulfillmentId.of(UUID.randomUUID()),
+                OrderId.of(UUID.randomUUID()),
+                "LIKE_CARD",
+                "5653",
+                FulfillmentStatus.PROCESSING,
+                CLAIMED,
+                null,
+                null,
+                NOW,
+                NOW);
     }
 
     private static FulfillmentWork reconstitute(

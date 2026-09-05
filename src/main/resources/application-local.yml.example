@@ -48,3 +48,18 @@ identity:
 #     "fromEmail": "your-email@gmail.com"
 #   }
 # -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Fulfillment execution (worker) and fake supplier purchase are SEPARATE switches.
+# Enabling the worker without any SupplierPurchasePort bean fails fast at startup.
+# Do not enable fake-purchase against real paid traffic.
+# -----------------------------------------------------------------------------
+takarub:
+  commerce:
+    fulfillment-execution:
+      enabled: false
+      fixed-delay-ms: 5000
+      initial-delay-ms: 15000
+  supplier:
+    fake-purchase:
+      enabled: false

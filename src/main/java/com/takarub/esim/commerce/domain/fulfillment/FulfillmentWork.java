@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 import com.takarub.esim.commerce.domain.order.OrderId;
+import com.takarub.esim.identity.shared.exception.ConflictException;
 import com.takarub.esim.identity.shared.exception.ValidationException;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
@@ -18,12 +19,12 @@ public class FulfillmentWork {
     private final OrderId orderId;
     private final String supplierKey;
     private final String remoteProductId;
-    private final FulfillmentStatus status;
+    private FulfillmentStatus status;
     private final Instant claimedAt;
-    private final String lastErrorCode;
-    private final String lastErrorMessage;
+    private String lastErrorCode;
+    private String lastErrorMessage;
     private final Instant createdAt;
-    private final Instant updatedAt;
+    private Instant updatedAt;
 
     private FulfillmentWork(
             FulfillmentId id,
@@ -134,6 +135,9 @@ public class FulfillmentWork {
             case FULFILLED -> {
                 requireText(supplierKey, "supplierKey");
                 requireText(remoteProductId, "remoteProductId");
+                requirePresent(claimedAt, "claimedAt");
+                requireAbsent(lastErrorCode, "lastErrorCode");
+                requireAbsent(lastErrorMessage, "lastErrorMessage");
             }
             case UNKNOWN -> {
                 requireText(supplierKey, "supplierKey");
@@ -159,6 +163,51 @@ public class FulfillmentWork {
                 blankToNull(lastErrorMessage),
                 createdAt,
                 updatedAt);
+    }
+
+    /**
+     * Transitions {@link FulfillmentStatus#PROCESSING} to {@link FulfillmentStatus#FULFILLED}.
+     */
+    public void markFulfilled(ClockProvider clock) {
+        requireProcessing("markFulfilled");
+        requirePresent(claimedAt, "claimedAt");
+        this.status = FulfillmentStatus.FULFILLED;
+        this.lastErrorCode = null;
+        this.lastErrorMessage = null;
+        this.updatedAt = clock.now();
+    }
+
+    /**
+     * Transitions {@link FulfillmentStatus#PROCESSING} to {@link FulfillmentStatus#UNKNOWN}.
+     */
+    public void markUnknown(ClockProvider clock, String errorCode, String errorMessage) {
+        requireProcessing("markUnknown");
+        requireText(errorCode, "lastErrorCode");
+        requireText(errorMessage, "lastErrorMessage");
+        this.status = FulfillmentStatus.UNKNOWN;
+        this.lastErrorCode = errorCode.trim();
+        this.lastErrorMessage = errorMessage.trim();
+        this.updatedAt = clock.now();
+    }
+
+    /**
+     * Transitions {@link FulfillmentStatus#PROCESSING} to {@link FulfillmentStatus#BLOCKED}.
+     */
+    public void markBlocked(ClockProvider clock, String errorCode, String errorMessage) {
+        requireProcessing("markBlocked");
+        requireText(errorCode, "lastErrorCode");
+        requireText(errorMessage, "lastErrorMessage");
+        this.status = FulfillmentStatus.BLOCKED;
+        this.lastErrorCode = errorCode.trim();
+        this.lastErrorMessage = errorMessage.trim();
+        this.updatedAt = clock.now();
+    }
+
+    private void requireProcessing(String action) {
+        if (status != FulfillmentStatus.PROCESSING) {
+            throw new ConflictException(
+                    "Fulfillment must be PROCESSING to " + action + "; current status: " + status);
+        }
     }
 
     private static void requireText(String value, String field) {
