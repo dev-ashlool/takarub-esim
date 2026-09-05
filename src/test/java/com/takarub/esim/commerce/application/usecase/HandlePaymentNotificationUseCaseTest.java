@@ -577,6 +577,10 @@ class HandlePaymentNotificationUseCaseTest {
                 7,
                 AMOUNT,
                 CURRENCY,
-                1);
+                1,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 }

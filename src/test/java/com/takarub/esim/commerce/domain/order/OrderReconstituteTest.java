@@ -1,6 +1,7 @@
 package com.takarub.esim.commerce.domain.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.takarub.esim.commerce.domain.cart.CartId;
 import com.takarub.esim.identity.domain.user.UserId;
+import com.takarub.esim.identity.shared.exception.ValidationException;
 import com.takarub.esim.supplier.domain.model.DataUnit;
 import com.takarub.esim.supplier.domain.model.LocationType;
 
@@ -37,7 +39,11 @@ class OrderReconstituteTest {
                 15,
                 new BigDecimal("14.99"),
                 "USD",
-                2);
+                2,
+                "LIKE_CARD",
+                "100",
+                new BigDecimal("7.0000"),
+                "USD");
 
         Order order = Order.reconstitute(
                 id,
@@ -75,6 +81,10 @@ class OrderReconstituteTest {
         assertThat(restored.currency()).isEqualTo("USD");
         assertThat(restored.quantity()).isEqualTo(2);
         assertThat(restored.lineTotal()).isEqualByComparingTo("29.98");
+        assertThat(restored.supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(restored.remoteProductId()).isEqualTo("100");
+        assertThat(restored.supplierCostAtCheckout()).isEqualByComparingTo("7.0000");
+        assertThat(restored.supplierCostCurrency()).isEqualTo("USD");
     }
 
     @Test
@@ -99,12 +109,67 @@ class OrderReconstituteTest {
                         30,
                         new BigDecimal("20.00"),
                         "USD",
-                        1)),
+                        1,
+                        "LIKE_CARD",
+                        "200",
+                        new BigDecimal("8.5000"),
+                        "USD")),
                 new BigDecimal("20.00"),
                 "USD");
 
         assertThat(order.status()).isEqualTo(OrderStatus.PAID);
         assertThat(order.checkoutRequestId()).isEqualTo(checkoutRequestId);
         assertThat(order.itemsView()).hasSize(1);
+        assertThat(order.itemsView().get(0).supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(order.itemsView().get(0).remoteProductId()).isEqualTo("200");
+    }
+
+    @Test
+    void reconstitutesLegacyOrderItemWithAllSupplierFieldsNull() {
+        OrderItem item = OrderItem.reconstitute(
+                "pkg-legacy",
+                "JO",
+                "الأردن",
+                "Jordan",
+                LocationType.COUNTRY,
+                1,
+                DataUnit.GB,
+                7,
+                new BigDecimal("10.00"),
+                "USD",
+                1,
+                null,
+                null,
+                null,
+                null);
+
+        assertThat(item.packageId()).isEqualTo("pkg-legacy");
+        assertThat(item.supplierKey()).isNull();
+        assertThat(item.remoteProductId()).isNull();
+        assertThat(item.supplierCostAtCheckout()).isNull();
+        assertThat(item.supplierCostCurrency()).isNull();
+        assertThat(item.lineTotal()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void reconstitutesRejectsPartialSupplierSnapshot() {
+        assertThatThrownBy(() -> OrderItem.reconstitute(
+                "pkg-1",
+                "JO",
+                "الأردن",
+                "Jordan",
+                LocationType.COUNTRY,
+                1,
+                DataUnit.GB,
+                7,
+                new BigDecimal("10.00"),
+                "USD",
+                1,
+                "LIKE_CARD",
+                null,
+                new BigDecimal("4.7100"),
+                "USD"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("partial");
     }
 }

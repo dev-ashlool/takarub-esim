@@ -7,8 +7,8 @@ import com.takarub.esim.supplier.domain.model.LocationType;
 
 /**
  * Immutable commercial line snapshot supplied by the application when creating an {@link Order}.
- * Mirrors the cart commercial package fields plus quantity; the order domain does not load Catalog
- * or Cart aggregates.
+ * Mirrors the cart commercial package fields plus quantity and the frozen supplier product
+ * selection resolved at checkout. The order domain does not load Catalog, Cart, or Supplier.
  */
 public record OrderItemSnapshot(
         String packageId,
@@ -21,5 +21,9 @@ public record OrderItemSnapshot(
         int durationDays,
         BigDecimal unitPrice,
         String currency,
-        int quantity) {
+        int quantity,
+        String supplierKey,
+        String remoteProductId,
+        BigDecimal supplierCostAtCheckout,
+        String supplierCostCurrency) {
 }

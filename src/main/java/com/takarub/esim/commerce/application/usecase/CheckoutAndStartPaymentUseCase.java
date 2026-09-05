@@ -17,6 +17,7 @@ import com.takarub.esim.identity.domain.user.UserId;
 import com.takarub.esim.identity.shared.exception.ConflictException;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.application.port.SupplierProductSelectionPort;
 
 /**
  * Initial purchase orchestration: one-package checkout plus first payment start in a single
@@ -38,13 +39,19 @@ public class CheckoutAndStartPaymentUseCase {
                                           OrderRepository orderRepository,
                                           PaymentAttemptRepository paymentAttemptRepository,
                                           CatalogBrowsePort catalogBrowsePort,
+                                          SupplierProductSelectionPort supplierProductSelectionPort,
                                           IdGenerator idGenerator,
                                           ClockProvider clock) {
         this.transactionRunner = transactionRunner;
         this.orderRepository = orderRepository;
         this.paymentAttemptRepository = paymentAttemptRepository;
         this.checkoutOrderCreator = new OnePackageCheckoutOrderCreator(
-                cartRepository, orderRepository, catalogBrowsePort, idGenerator, clock);
+                cartRepository,
+                orderRepository,
+                catalogBrowsePort,
+                supplierProductSelectionPort,
+                idGenerator,
+                clock);
         this.idGenerator = idGenerator;
         this.clock = clock;
     }

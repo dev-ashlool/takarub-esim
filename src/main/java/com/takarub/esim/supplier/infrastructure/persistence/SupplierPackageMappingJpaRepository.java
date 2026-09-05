@@ -25,4 +25,12 @@ public interface SupplierPackageMappingJpaRepository extends JpaRepository<Suppl
               AND m.inStock = true
             """)
     Optional<BigDecimal> findMinNormalizedCostForInStockPackage(@Param("packageId") String packageId);
+
+    /**
+     * Deterministic winning in-stock mapping for a catalog package:
+     * normalized cost ASC, supplier key ASC, remote product id ASC.
+     */
+    Optional<SupplierPackageMappingEntity>
+    findFirstByCatalogPackage_IdAndInStockTrueOrderByNormalizedCostPriceAscSupplierKeyAscRemoteProductIdAsc(
+            String catalogPackageId);
 }

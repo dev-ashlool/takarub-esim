@@ -13,7 +13,9 @@ public enum CommerceApplicationErrorCode implements ErrorCode {
     PAYMENT_ATTEMPT_NOT_FOUND("COMMERCE_PAYMENT_ATTEMPT_NOT_FOUND",
             "The requested payment attempt was not found."),
     PACKAGE_NOT_SELLABLE("COMMERCE_PACKAGE_NOT_SELLABLE",
-            "The catalog package is not available for purchase.");
+            "The catalog package is not available for purchase."),
+    NO_SUPPLIER_PRODUCT_AVAILABLE("COMMERCE_NO_SUPPLIER_PRODUCT_AVAILABLE",
+            "No in-stock supplier product is available for this package.");
 
     private final String code;
     private final String defaultMessage;

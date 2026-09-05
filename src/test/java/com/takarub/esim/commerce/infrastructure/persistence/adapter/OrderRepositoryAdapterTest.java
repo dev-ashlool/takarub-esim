@@ -238,6 +238,10 @@ class OrderRepositoryAdapterTest {
                 7,
                 new BigDecimal(unitPrice),
                 currency,
-                quantity);
+                quantity,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 }

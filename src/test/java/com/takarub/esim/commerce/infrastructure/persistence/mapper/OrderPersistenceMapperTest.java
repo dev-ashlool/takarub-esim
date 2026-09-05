@@ -16,6 +16,7 @@ import com.takarub.esim.commerce.domain.order.CheckoutRequestId;
 import com.takarub.esim.commerce.domain.order.Order;
 import com.takarub.esim.commerce.domain.order.OrderItemSnapshot;
 import com.takarub.esim.commerce.domain.order.OrderStatus;
+import com.takarub.esim.commerce.infrastructure.persistence.entity.OrderItemJpaEntity;
 import com.takarub.esim.commerce.infrastructure.persistence.entity.OrderJpaEntity;
 import com.takarub.esim.identity.domain.user.UserId;
 import com.takarub.esim.identity.shared.id.UuidIdGenerator;
@@ -67,6 +68,54 @@ class OrderPersistenceMapperTest {
         assertThat(reconstituted.itemsView().get(0).packageId()).isEqualTo("pkg-1");
         assertThat(reconstituted.itemsView().get(1).quantity()).isEqualTo(2);
         assertThat(reconstituted.itemsView().get(1).lineTotal()).isEqualByComparingTo("9.00");
+        assertThat(reconstituted.itemsView().get(0).supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(reconstituted.itemsView().get(0).remoteProductId()).isEqualTo("5653");
+        assertThat(reconstituted.itemsView().get(0).supplierCostAtCheckout())
+                .isEqualByComparingTo("4.7100");
+        assertThat(reconstituted.itemsView().get(0).supplierCostCurrency()).isEqualTo("USD");
+        assertThat(entity.getItems().get(0).getSupplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(entity.getItems().get(0).getRemoteProductId()).isEqualTo("5653");
+        assertThat(entity.getItems().get(0).getSupplierCostPrice()).isEqualByComparingTo("4.7100");
+        assertThat(entity.getItems().get(0).getSupplierCostCurrency()).isEqualTo("USD");
+    }
+
+    @Test
+    void mapsLegacyJpaEntityWithAllSupplierFieldsNullIntoDomain() {
+        OrderJpaEntity entity = new OrderJpaEntity(
+                UUID.randomUUID().toString(),
+                UUID.randomUUID().toString(),
+                UUID.randomUUID().toString(),
+                UUID.randomUUID().toString(),
+                OrderStatus.PAID,
+                new BigDecimal("10.00"),
+                "USD",
+                FIXED,
+                FIXED);
+        entity.addItem(new OrderItemJpaEntity(
+                "pkg-legacy",
+                "JO",
+                "الأردن",
+                "Jordan",
+                LocationType.COUNTRY,
+                1,
+                DataUnit.GB,
+                7,
+                new BigDecimal("10.00"),
+                "USD",
+                1,
+                null,
+                null,
+                null,
+                null));
+
+        Order domain = mapper.toDomain(entity);
+
+        assertThat(domain.itemsView()).hasSize(1);
+        assertThat(domain.itemsView().get(0).packageId()).isEqualTo("pkg-legacy");
+        assertThat(domain.itemsView().get(0).supplierKey()).isNull();
+        assertThat(domain.itemsView().get(0).remoteProductId()).isNull();
+        assertThat(domain.itemsView().get(0).supplierCostAtCheckout()).isNull();
+        assertThat(domain.itemsView().get(0).supplierCostCurrency()).isNull();
     }
 
     private static OrderItemSnapshot snapshot(String packageId, String unitPrice, int quantity) {
@@ -81,6 +130,10 @@ class OrderPersistenceMapperTest {
                 7,
                 new BigDecimal(unitPrice),
                 "USD",
-                quantity);
+                quantity,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 }

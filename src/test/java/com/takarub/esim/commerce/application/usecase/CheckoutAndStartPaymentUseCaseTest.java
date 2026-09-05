@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.catalog.application.result.PackageDetailsView;
 import com.takarub.esim.commerce.application.command.CheckoutCommand;
+import com.takarub.esim.commerce.application.exception.NoSupplierProductAvailableApplicationException;
 import com.takarub.esim.commerce.application.result.CheckoutPaymentView;
 import com.takarub.esim.commerce.domain.cart.Cart;
 import com.takarub.esim.commerce.domain.cart.CartId;
@@ -44,6 +45,8 @@ import com.takarub.esim.identity.domain.user.UserId;
 import com.takarub.esim.identity.shared.exception.ConflictException;
 import com.takarub.esim.identity.shared.id.UuidIdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.application.port.SupplierProductSelectionPort;
+import com.takarub.esim.supplier.application.result.SelectedSupplierProduct;
 import com.takarub.esim.supplier.domain.model.DataUnit;
 import com.takarub.esim.supplier.domain.model.LocationType;
 
@@ -64,6 +67,8 @@ class CheckoutAndStartPaymentUseCaseTest {
     @Mock
     private CatalogBrowsePort catalogBrowsePort;
     @Mock
+    private SupplierProductSelectionPort supplierProductSelectionPort;
+    @Mock
     private ClockProvider clock;
 
     private final UuidIdGenerator idGenerator = new UuidIdGenerator();
@@ -81,6 +86,7 @@ class CheckoutAndStartPaymentUseCaseTest {
                 orderRepository,
                 paymentAttemptRepository,
                 catalogBrowsePort,
+                supplierProductSelectionPort,
                 idGenerator,
                 clock);
         lenient().when(transactionRunner.execute(any())).thenAnswer(invocation -> {
@@ -90,6 +96,8 @@ class CheckoutAndStartPaymentUseCaseTest {
         lenient().when(orderRepository.findByUserIdAndCheckoutRequestId(any(), any()))
                 .thenReturn(Optional.empty());
         lenient().when(clock.now()).thenReturn(NOW);
+        lenient().when(supplierProductSelectionPort.findWinningInStockMapping(PACKAGE_ID))
+                .thenReturn(Optional.of(selectedSupplier()));
     }
 
     @Test
@@ -132,7 +140,29 @@ class CheckoutAndStartPaymentUseCaseTest {
         assertThat(attempt.currency()).isEqualTo(view.currency());
         assertThat(view.paymentAttemptId()).isEqualTo(attempt.id());
 
+        Order firstSavedOrder = orderCaptor.getAllValues().get(0);
+        assertThat(firstSavedOrder.itemsView().get(0).supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(firstSavedOrder.itemsView().get(0).remoteProductId()).isEqualTo("100");
+        assertThat(firstSavedOrder.itemsView().get(0).supplierCostAtCheckout())
+                .isEqualByComparingTo("7.0000");
+        assertThat(firstSavedOrder.itemsView().get(0).supplierCostCurrency()).isEqualTo("USD");
+
+        verify(supplierProductSelectionPort).findWinningInStockMapping(PACKAGE_ID);
         verify(transactionRunner).execute(any());
+    }
+
+    @Test
+    void noSupplierProductAvailableDoesNotPersistCartOrderOrPayment() {
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(availablePackage()));
+        when(supplierProductSelectionPort.findWinningInStockMapping(PACKAGE_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
+                .isInstanceOf(NoSupplierProductAvailableApplicationException.class);
+
+        verify(cartRepository, never()).findOpenByUserId(any());
+        verify(cartRepository, never()).save(any());
+        verify(orderRepository, never()).save(any());
+        verify(paymentAttemptRepository, never()).save(any());
     }
 
     @Test
@@ -154,6 +184,7 @@ class CheckoutAndStartPaymentUseCaseTest {
         assertThat(view.paymentAttemptStatus()).isEqualTo(PaymentAttemptStatus.INITIATED);
 
         verify(catalogBrowsePort, never()).findPackageById(any());
+        verify(supplierProductSelectionPort, never()).findWinningInStockMapping(any());
         verify(cartRepository, never()).findOpenByUserId(any());
         verify(cartRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
@@ -340,7 +371,11 @@ class CheckoutAndStartPaymentUseCaseTest {
                 7,
                 new BigDecimal("9.99"),
                 "USD",
-                quantity);
+                quantity,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 
     private PackageDetailsView availablePackage() {
@@ -358,5 +393,13 @@ class CheckoutAndStartPaymentUseCaseTest {
                 new BigDecimal("9.99"),
                 "USD",
                 "jordan");
+    }
+
+    private static SelectedSupplierProduct selectedSupplier() {
+        return new SelectedSupplierProduct(
+                "LIKE_CARD",
+                "100",
+                new BigDecimal("7.0000"),
+                "USD");
     }
 }

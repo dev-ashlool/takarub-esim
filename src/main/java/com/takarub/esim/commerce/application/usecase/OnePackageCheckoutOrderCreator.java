@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.catalog.application.result.PackageDetailsView;
+import com.takarub.esim.commerce.application.exception.NoSupplierProductAvailableApplicationException;
 import com.takarub.esim.commerce.application.exception.PackageNotSellableApplicationException;
 import com.takarub.esim.commerce.domain.cart.Cart;
 import com.takarub.esim.commerce.domain.cart.CartItem;
@@ -16,30 +17,35 @@ import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.identity.domain.user.UserId;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.application.port.SupplierProductSelectionPort;
+import com.takarub.esim.supplier.application.result.SelectedSupplierProduct;
 
 /**
  * Shared one-package checkout-create path used by {@link CheckoutUseCase} and
  * {@link CheckoutAndStartPaymentUseCase}. Not a public application API / use case.
  *
  * <p>Cancels any OPEN cart, creates a fresh checked-out cart, and persists a new Order in
- * {@code CREATED}. Does not start payment.
+ * {@code CREATED} with a frozen supplier product selection. Does not start payment.
  */
 final class OnePackageCheckoutOrderCreator {
 
     private final CartRepository cartRepository;
     private final OrderRepository orderRepository;
     private final CatalogBrowsePort catalogBrowsePort;
+    private final SupplierProductSelectionPort supplierProductSelectionPort;
     private final IdGenerator idGenerator;
     private final ClockProvider clock;
 
     OnePackageCheckoutOrderCreator(CartRepository cartRepository,
                                    OrderRepository orderRepository,
                                    CatalogBrowsePort catalogBrowsePort,
+                                   SupplierProductSelectionPort supplierProductSelectionPort,
                                    IdGenerator idGenerator,
                                    ClockProvider clock) {
         this.cartRepository = cartRepository;
         this.orderRepository = orderRepository;
         this.catalogBrowsePort = catalogBrowsePort;
+        this.supplierProductSelectionPort = supplierProductSelectionPort;
         this.idGenerator = idGenerator;
         this.clock = clock;
     }
@@ -54,6 +60,10 @@ final class OnePackageCheckoutOrderCreator {
                              String packageId,
                              int quantity) {
         PackageDetailsView packageDetails = loadSellablePackage(packageId);
+        SelectedSupplierProduct selected = supplierProductSelectionPort
+                .findWinningInStockMapping(packageDetails.id())
+                .orElseThrow(() -> new NoSupplierProductAvailableApplicationException(packageDetails.id()));
+
         CartItemOffer offer = toOffer(packageDetails);
 
         cartRepository.findOpenByUserId(userId).ifPresent(oldCart -> {
@@ -66,7 +76,7 @@ final class OnePackageCheckoutOrderCreator {
         freshCart.checkout(clock);
 
         List<OrderItemSnapshot> snapshots = freshCart.itemsView().stream()
-                .map(OnePackageCheckoutOrderCreator::toOrderItemSnapshot)
+                .map(item -> toOrderItemSnapshot(item, selected))
                 .toList();
 
         Order order = Order.create(
@@ -99,7 +109,7 @@ final class OnePackageCheckoutOrderCreator {
                 pkg.priceCurrency());
     }
 
-    private static OrderItemSnapshot toOrderItemSnapshot(CartItem item) {
+    private static OrderItemSnapshot toOrderItemSnapshot(CartItem item, SelectedSupplierProduct selected) {
         return new OrderItemSnapshot(
                 item.packageId(),
                 item.countryIso(),
@@ -111,6 +121,10 @@ final class OnePackageCheckoutOrderCreator {
                 item.durationDays(),
                 item.unitPrice(),
                 item.currency(),
-                item.quantity());
+                item.quantity(),
+                selected.supplierKey(),
+                selected.remoteProductId(),
+                selected.supplierCostAtCheckout(),
+                selected.supplierCostCurrency());
     }
 }

@@ -21,8 +21,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * JPA persistence representation of an order line commercial snapshot. Does not store derived
- * {@code lineTotal}.
+ * JPA persistence representation of an order line commercial snapshot plus optional frozen
+ * supplier selection (null on legacy rows; required for new application-created lines).
+ * Does not store derived {@code lineTotal}.
  */
 @Entity
 @Table(name = "order_items")
@@ -74,6 +75,18 @@ public class OrderItemJpaEntity {
     @Column(name = "quantity", nullable = false)
     private int quantity;
 
+    @Column(name = "supplier_key", length = 50)
+    private String supplierKey;
+
+    @Column(name = "remote_product_id", length = 50)
+    private String remoteProductId;
+
+    @Column(name = "supplier_cost_price", precision = 12, scale = 4)
+    private BigDecimal supplierCostPrice;
+
+    @Column(name = "supplier_cost_currency", length = 3)
+    private String supplierCostCurrency;
+
     public OrderItemJpaEntity(
             String packageId,
             String countryIso,
@@ -85,7 +98,11 @@ public class OrderItemJpaEntity {
             int durationDays,
             BigDecimal unitPrice,
             String currency,
-            int quantity) {
+            int quantity,
+            String supplierKey,
+            String remoteProductId,
+            BigDecimal supplierCostPrice,
+            String supplierCostCurrency) {
         this.packageId = packageId;
         this.countryIso = countryIso;
         this.countryNameArabic = countryNameArabic;
@@ -97,6 +114,10 @@ public class OrderItemJpaEntity {
         this.unitPrice = unitPrice;
         this.currency = currency;
         this.quantity = quantity;
+        this.supplierKey = supplierKey;
+        this.remoteProductId = remoteProductId;
+        this.supplierCostPrice = supplierCostPrice;
+        this.supplierCostCurrency = supplierCostCurrency;
     }
 
     void setOrder(OrderJpaEntity orderEntity) {

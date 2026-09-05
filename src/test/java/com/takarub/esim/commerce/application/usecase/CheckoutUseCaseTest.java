@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.takarub.esim.catalog.application.port.CatalogBrowsePort;
 import com.takarub.esim.catalog.application.result.PackageDetailsView;
 import com.takarub.esim.commerce.application.command.CheckoutCommand;
+import com.takarub.esim.commerce.application.exception.NoSupplierProductAvailableApplicationException;
 import com.takarub.esim.commerce.application.exception.PackageNotSellableApplicationException;
 import com.takarub.esim.commerce.application.result.OrderView;
 import com.takarub.esim.commerce.domain.cart.Cart;
@@ -43,6 +44,8 @@ import com.takarub.esim.identity.domain.user.UserId;
 import com.takarub.esim.identity.shared.exception.ValidationException;
 import com.takarub.esim.identity.shared.id.UuidIdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.application.port.SupplierProductSelectionPort;
+import com.takarub.esim.supplier.application.result.SelectedSupplierProduct;
 import com.takarub.esim.supplier.domain.model.DataUnit;
 import com.takarub.esim.supplier.domain.model.LocationType;
 
@@ -61,6 +64,8 @@ class CheckoutUseCaseTest {
     @Mock
     private CatalogBrowsePort catalogBrowsePort;
     @Mock
+    private SupplierProductSelectionPort supplierProductSelectionPort;
+    @Mock
     private ClockProvider clock;
 
     private final UuidIdGenerator idGenerator = new UuidIdGenerator();
@@ -77,6 +82,7 @@ class CheckoutUseCaseTest {
                 cartRepository,
                 orderRepository,
                 catalogBrowsePort,
+                supplierProductSelectionPort,
                 idGenerator,
                 clock);
         lenient().when(transactionRunner.execute(any())).thenAnswer(invocation -> {
@@ -85,6 +91,8 @@ class CheckoutUseCaseTest {
         });
         lenient().when(orderRepository.findByUserIdAndCheckoutRequestId(any(), any()))
                 .thenReturn(Optional.empty());
+        lenient().when(supplierProductSelectionPort.findWinningInStockMapping(PACKAGE_ID))
+                .thenReturn(Optional.of(selectedSupplier()));
     }
 
     @Test
@@ -106,6 +114,7 @@ class CheckoutUseCaseTest {
         assertThat(view.id()).isEqualTo(existing.id());
         assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
         verify(catalogBrowsePort, never()).findPackageById(any());
+        verify(supplierProductSelectionPort, never()).findWinningInStockMapping(any());
         verify(cartRepository, never()).findOpenByUserId(any());
         verify(cartRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
@@ -141,6 +150,12 @@ class CheckoutUseCaseTest {
         assertThat(orderCaptor.getValue().checkoutRequestId())
                 .isEqualTo(CheckoutRequestId.of(checkoutRequestId));
         assertThat(orderCaptor.getValue().cartId()).isEqualTo(savedCart.id());
+        assertThat(orderCaptor.getValue().itemsView().get(0).supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(orderCaptor.getValue().itemsView().get(0).remoteProductId()).isEqualTo("100");
+        assertThat(orderCaptor.getValue().itemsView().get(0).supplierCostAtCheckout())
+                .isEqualByComparingTo("7.0000");
+        assertThat(orderCaptor.getValue().itemsView().get(0).supplierCostCurrency()).isEqualTo("USD");
+        verify(supplierProductSelectionPort).findWinningInStockMapping(PACKAGE_ID);
     }
 
     @Test
@@ -228,9 +243,63 @@ class CheckoutUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(PackageNotSellableApplicationException.class);
 
+        verify(supplierProductSelectionPort, never()).findWinningInStockMapping(any());
         verify(cartRepository, never()).findOpenByUserId(any());
         verify(cartRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void noSupplierProductAvailableDoesNotPersistCartOrOrder() {
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(availablePackage()));
+        when(supplierProductSelectionPort.findWinningInStockMapping(PACKAGE_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
+                .isInstanceOf(NoSupplierProductAvailableApplicationException.class)
+                .extracting(ex -> ((NoSupplierProductAvailableApplicationException) ex).getErrorCode().code())
+                .isEqualTo("COMMERCE_NO_SUPPLIER_PRODUCT_AVAILABLE");
+
+        verify(cartRepository, never()).findOpenByUserId(any());
+        verify(cartRepository, never()).save(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void fixedSellPriceStillRequiresSupplierSelection() {
+        PackageDetailsView fixedPricePackage = new PackageDetailsView(
+                PACKAGE_ID,
+                "JO",
+                "الأردن",
+                "Jordan",
+                "https://example.com/jo.png",
+                1,
+                DataUnit.GB,
+                7,
+                true,
+                LocationType.COUNTRY,
+                new BigDecimal("12.00"),
+                "USD",
+                "jordan");
+        when(clock.now()).thenReturn(NOW);
+        when(catalogBrowsePort.findPackageById(PACKAGE_ID)).thenReturn(Optional.of(fixedPricePackage));
+        when(supplierProductSelectionPort.findWinningInStockMapping(PACKAGE_ID))
+                .thenReturn(Optional.of(new SelectedSupplierProduct(
+                        "LIKE_CARD", "100", new BigDecimal("7.0000"), "USD")));
+        when(cartRepository.findOpenByUserId(UserId.of(userId))).thenReturn(Optional.empty());
+        when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderView view = useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId));
+
+        assertThat(view.totalAmount()).isEqualByComparingTo("12.00");
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().itemsView().get(0).unitPrice()).isEqualByComparingTo("12.00");
+        assertThat(orderCaptor.getValue().itemsView().get(0).supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(orderCaptor.getValue().itemsView().get(0).remoteProductId()).isEqualTo("100");
+        assertThat(orderCaptor.getValue().itemsView().get(0).supplierCostAtCheckout())
+                .isEqualByComparingTo("7.0000");
+        verify(supplierProductSelectionPort).findWinningInStockMapping(PACKAGE_ID);
     }
 
     @Test
@@ -261,7 +330,11 @@ class CheckoutUseCaseTest {
                 7,
                 new BigDecimal("9.99"),
                 "USD",
-                quantity);
+                quantity,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 
     private PackageDetailsView availablePackage() {
@@ -279,6 +352,14 @@ class CheckoutUseCaseTest {
                 new BigDecimal("9.99"),
                 "USD",
                 "jordan");
+    }
+
+    private static SelectedSupplierProduct selectedSupplier() {
+        return new SelectedSupplierProduct(
+                "LIKE_CARD",
+                "100",
+                new BigDecimal("7.0000"),
+                "USD");
     }
 
     private static CartItemOffer staleOffer() {

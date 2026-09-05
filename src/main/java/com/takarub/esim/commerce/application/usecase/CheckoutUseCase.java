@@ -10,6 +10,7 @@ import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.domain.user.UserId;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.application.port.SupplierProductSelectionPort;
 
 /**
  * One-package MVP checkout: cancel any OPEN cart, create a fresh checked-out cart, create Order
@@ -26,12 +27,18 @@ public class CheckoutUseCase {
                            CartRepository cartRepository,
                            OrderRepository orderRepository,
                            CatalogBrowsePort catalogBrowsePort,
+                           SupplierProductSelectionPort supplierProductSelectionPort,
                            IdGenerator idGenerator,
                            ClockProvider clock) {
         this.transactionRunner = transactionRunner;
         this.orderRepository = orderRepository;
         this.checkoutOrderCreator = new OnePackageCheckoutOrderCreator(
-                cartRepository, orderRepository, catalogBrowsePort, idGenerator, clock);
+                cartRepository,
+                orderRepository,
+                catalogBrowsePort,
+                supplierProductSelectionPort,
+                idGenerator,
+                clock);
     }
 
     public OrderView execute(CheckoutCommand command) {

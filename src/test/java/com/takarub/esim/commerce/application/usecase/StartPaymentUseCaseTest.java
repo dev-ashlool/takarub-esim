@@ -302,6 +302,10 @@ class StartPaymentUseCaseTest {
                 7,
                 new BigDecimal("9.99"),
                 "USD",
-                2);
+                2,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 }

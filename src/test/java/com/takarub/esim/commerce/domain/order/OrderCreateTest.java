@@ -53,6 +53,10 @@ class OrderCreateTest {
         assertThat(order.itemsView()).hasSize(1);
         assertThat(order.itemsView().get(0).packageId()).isEqualTo("pkg-1");
         assertThat(order.itemsView().get(0).lineTotal()).isEqualByComparingTo("19.98");
+        assertThat(order.itemsView().get(0).supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(order.itemsView().get(0).remoteProductId()).isEqualTo("5653");
+        assertThat(order.itemsView().get(0).supplierCostAtCheckout()).isEqualByComparingTo("4.7100");
+        assertThat(order.itemsView().get(0).supplierCostCurrency()).isEqualTo("USD");
     }
 
     @Test
@@ -204,7 +208,11 @@ class OrderCreateTest {
                 7,
                 new BigDecimal("10.00"),
                 "USD",
-                1);
+                1,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
 
         assertThatThrownBy(() -> Order.create(
                 idGenerator,
@@ -231,7 +239,11 @@ class OrderCreateTest {
                 7,
                 new BigDecimal("10.00"),
                 "USD",
-                1));
+                1,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD"));
 
         assertThatThrownBy(() -> Order.create(
                 idGenerator,
@@ -242,6 +254,36 @@ class OrderCreateTest {
                 missingLocation))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("locationType");
+    }
+
+    @Test
+    void createFailsWhenSupplierSnapshotFieldsAreMissing() {
+        OrderItemSnapshot missingSupplier = new OrderItemSnapshot(
+                "pkg-1",
+                "JO",
+                "الأردن",
+                "Jordan",
+                LocationType.COUNTRY,
+                1,
+                DataUnit.GB,
+                7,
+                new BigDecimal("10.00"),
+                "USD",
+                1,
+                null,
+                null,
+                null,
+                null);
+
+        assertThatThrownBy(() -> Order.create(
+                idGenerator,
+                clock,
+                CartId.of(UUID.randomUUID()),
+                UserId.of(UUID.randomUUID()),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
+                List.of(missingSupplier)))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("supplierKey");
     }
 
     private static OrderItemSnapshot snapshot(String packageId, String currency, String unitPrice, int quantity) {
@@ -256,6 +298,10 @@ class OrderCreateTest {
                 7,
                 new BigDecimal(unitPrice),
                 currency,
-                quantity);
+                quantity,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 }

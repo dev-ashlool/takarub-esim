@@ -46,7 +46,11 @@ public class OrderPersistenceMapper {
                     item.durationDays(),
                     item.unitPrice(),
                     item.currency(),
-                    item.quantity());
+                    item.quantity(),
+                    item.supplierKey(),
+                    item.remoteProductId(),
+                    item.supplierCostAtCheckout(),
+                    item.supplierCostCurrency());
             entity.addItem(line);
         }
         return entity;
@@ -66,7 +70,11 @@ public class OrderPersistenceMapper {
                     line.getDurationDays(),
                     line.getUnitPrice(),
                     line.getCurrency(),
-                    line.getQuantity()));
+                    line.getQuantity(),
+                    line.getSupplierKey(),
+                    line.getRemoteProductId(),
+                    line.getSupplierCostPrice(),
+                    line.getSupplierCostCurrency()));
         }
 
         return Order.reconstitute(

@@ -18,6 +18,7 @@ import com.takarub.esim.commerce.domain.payment.PaymentAttemptRepository;
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.application.port.SupplierProductSelectionPort;
 
 /**
  * Explicit Spring wiring for commerce application use cases. Use cases carry no Spring annotations;
@@ -69,6 +70,7 @@ public class CommerceUseCaseConfig {
                                            CartRepository cartRepository,
                                            OrderRepository orderRepository,
                                            CatalogBrowsePort catalogBrowsePort,
+                                           SupplierProductSelectionPort supplierProductSelectionPort,
                                            IdGenerator idGenerator,
                                            ClockProvider clockProvider) {
         return new CheckoutUseCase(
@@ -76,6 +78,7 @@ public class CommerceUseCaseConfig {
                 cartRepository,
                 orderRepository,
                 catalogBrowsePort,
+                supplierProductSelectionPort,
                 idGenerator,
                 clockProvider);
     }
@@ -101,6 +104,7 @@ public class CommerceUseCaseConfig {
             OrderRepository orderRepository,
             PaymentAttemptRepository paymentAttemptRepository,
             CatalogBrowsePort catalogBrowsePort,
+            SupplierProductSelectionPort supplierProductSelectionPort,
             IdGenerator idGenerator,
             ClockProvider clockProvider) {
         return new CheckoutAndStartPaymentUseCase(
@@ -109,6 +113,7 @@ public class CommerceUseCaseConfig {
                 orderRepository,
                 paymentAttemptRepository,
                 catalogBrowsePort,
+                supplierProductSelectionPort,
                 idGenerator,
                 clockProvider);
     }

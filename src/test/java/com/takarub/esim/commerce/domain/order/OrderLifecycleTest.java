@@ -156,7 +156,11 @@ class OrderLifecycleTest {
                 7,
                 new BigDecimal("10.00"),
                 "USD",
-                1);
+                1,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
     }
 
     private static final class MutableClockProvider implements ClockProvider {
