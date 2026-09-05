@@ -6,10 +6,12 @@ import org.springframework.context.annotation.Configuration;
 
 import com.takarub.esim.commerce.application.port.PaymentVerifier;
 import com.takarub.esim.commerce.application.usecase.HandlePaymentNotificationUseCase;
+import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.payment.PaymentAttemptRepository;
 import com.takarub.esim.commerce.infrastructure.verification.FakePaymentVerifier;
 import com.takarub.esim.identity.application.port.TransactionRunner;
+import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
 
 /**
@@ -33,13 +35,17 @@ public class CommerceDevPaymentVerificationConfig {
             TransactionRunner transactionRunner,
             PaymentAttemptRepository paymentAttemptRepository,
             OrderRepository orderRepository,
+            FulfillmentWorkRepository fulfillmentWorkRepository,
             PaymentVerifier paymentVerifier,
+            IdGenerator idGenerator,
             ClockProvider clockProvider) {
         return new HandlePaymentNotificationUseCase(
                 transactionRunner,
                 paymentAttemptRepository,
                 orderRepository,
+                fulfillmentWorkRepository,
                 paymentVerifier,
+                idGenerator,
                 clockProvider);
     }
 }

@@ -18,8 +18,8 @@ public record CheckoutCommand(String userId, String packageId, int quantity, Str
         if (packageId == null || packageId.isBlank()) {
             throw new ValidationException("Package id is required");
         }
-        if (quantity <= 0) {
-            throw new ValidationException("Quantity must be positive");
+        if (quantity != 1) {
+            throw new ValidationException("Quantity must be exactly 1");
         }
         if (checkoutRequestId == null || checkoutRequestId.isBlank()) {
             throw new ValidationException("Checkout request id is required");

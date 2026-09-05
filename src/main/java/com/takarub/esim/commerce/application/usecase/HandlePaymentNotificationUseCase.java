@@ -8,7 +8,10 @@ import com.takarub.esim.commerce.application.port.VerifiedPaymentOutcome;
 import com.takarub.esim.commerce.application.port.VerifiedPaymentResult;
 import com.takarub.esim.commerce.application.result.PaymentVerificationDisposition;
 import com.takarub.esim.commerce.application.result.PaymentVerificationView;
+import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWork;
+import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
 import com.takarub.esim.commerce.domain.order.Order;
+import com.takarub.esim.commerce.domain.order.OrderItem;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.order.OrderStatus;
 import com.takarub.esim.commerce.domain.payment.PaymentAttempt;
@@ -17,30 +20,42 @@ import com.takarub.esim.commerce.domain.payment.PaymentAttemptRepository;
 import com.takarub.esim.commerce.domain.payment.PaymentAttemptStatus;
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.shared.exception.ConflictException;
+import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
 
 /**
  * Handles an untrusted payment notification by verifying outside the database transaction, then
- * applying trusted verification state in a short transaction. Ends at payment state only — no
- * supplier fulfillment.
+ * applying trusted verification state in a short transaction. On verified success, creates durable
+ * fulfillment work in the same transaction as payment confirmation — no supplier HTTP.
  */
 public class HandlePaymentNotificationUseCase {
+
+    static final String ERROR_LEGACY_SUPPLIER_SELECTION_MISSING = "LEGACY_SUPPLIER_SELECTION_MISSING";
+    static final String ERROR_UNSUPPORTED_ORDER_QUANTITY = "UNSUPPORTED_ORDER_QUANTITY";
+    static final String ERROR_UNEXPECTED_ORDER_ITEM_COUNT = "UNEXPECTED_ORDER_ITEM_COUNT";
+    static final String ERROR_INCOMPLETE_SUPPLIER_SELECTION = "INCOMPLETE_SUPPLIER_SELECTION";
 
     private final TransactionRunner transactionRunner;
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final OrderRepository orderRepository;
+    private final FulfillmentWorkRepository fulfillmentWorkRepository;
     private final PaymentVerifier paymentVerifier;
+    private final IdGenerator idGenerator;
     private final ClockProvider clock;
 
     public HandlePaymentNotificationUseCase(TransactionRunner transactionRunner,
                                             PaymentAttemptRepository paymentAttemptRepository,
                                             OrderRepository orderRepository,
+                                            FulfillmentWorkRepository fulfillmentWorkRepository,
                                             PaymentVerifier paymentVerifier,
+                                            IdGenerator idGenerator,
                                             ClockProvider clock) {
         this.transactionRunner = transactionRunner;
         this.paymentAttemptRepository = paymentAttemptRepository;
         this.orderRepository = orderRepository;
+        this.fulfillmentWorkRepository = fulfillmentWorkRepository;
         this.paymentVerifier = paymentVerifier;
+        this.idGenerator = idGenerator;
         this.clock = clock;
     }
 
@@ -111,6 +126,7 @@ public class HandlePaymentNotificationUseCase {
         if (verified.outcome() == VerifiedPaymentOutcome.SUCCEEDED) {
             attempt.confirm(clock);
             order.markPaid(clock);
+            fulfillmentWorkRepository.save(deriveFulfillmentWork(order));
         } else if (verified.outcome() == VerifiedPaymentOutcome.FAILED) {
             attempt.fail(clock);
             order.markPaymentFailed(clock);
@@ -121,6 +137,71 @@ public class HandlePaymentNotificationUseCase {
         paymentAttemptRepository.save(attempt);
         orderRepository.save(order);
         return toView(attempt, order, PaymentVerificationDisposition.APPLIED);
+    }
+
+    /**
+     * Builds PENDING or BLOCKED work from the paid order's line(s). Never throws for data gaps —
+     * BLOCKED records preserve payment success. Never re-selects supplier mappings.
+     */
+    FulfillmentWork deriveFulfillmentWork(Order order) {
+        if (order.itemsView().size() != 1) {
+            return FulfillmentWork.blocked(
+                    idGenerator,
+                    clock,
+                    order.id(),
+                    null,
+                    null,
+                    ERROR_UNEXPECTED_ORDER_ITEM_COUNT,
+                    "Paid order must have exactly one order item for fulfillment.");
+        }
+
+        OrderItem item = order.itemsView().get(0);
+        if (item.quantity() != 1) {
+            return FulfillmentWork.blocked(
+                    idGenerator,
+                    clock,
+                    order.id(),
+                    null,
+                    null,
+                    ERROR_UNSUPPORTED_ORDER_QUANTITY,
+                    "Paid order quantity is not supported for fulfillment; expected quantity 1.");
+        }
+
+        boolean keyAbsent = isAbsent(item.supplierKey());
+        boolean remoteAbsent = isAbsent(item.remoteProductId());
+
+        if (!keyAbsent && !remoteAbsent) {
+            return FulfillmentWork.pending(
+                    idGenerator,
+                    clock,
+                    order.id(),
+                    item.supplierKey(),
+                    item.remoteProductId());
+        }
+
+        if (keyAbsent && remoteAbsent) {
+            return FulfillmentWork.blocked(
+                    idGenerator,
+                    clock,
+                    order.id(),
+                    null,
+                    null,
+                    ERROR_LEGACY_SUPPLIER_SELECTION_MISSING,
+                    "Legacy paid order has no frozen supplier selection.");
+        }
+
+        return FulfillmentWork.blocked(
+                idGenerator,
+                clock,
+                order.id(),
+                null,
+                null,
+                ERROR_INCOMPLETE_SUPPLIER_SELECTION,
+                "Paid order has an incomplete frozen supplier selection.");
+    }
+
+    private static boolean isAbsent(String value) {
+        return value == null || value.isBlank();
     }
 
     private static void assertAmountAndCurrencyMatch(PaymentAttempt attempt,

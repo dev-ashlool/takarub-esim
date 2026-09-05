@@ -104,12 +104,12 @@ class CheckoutUseCaseTest {
                 CartId.of(UUID.randomUUID()),
                 UserId.of(userId),
                 CheckoutRequestId.of(checkoutRequestId),
-                List.of(orderLine(PACKAGE_ID, 2)));
+                List.of(orderLine(PACKAGE_ID, 1)));
         when(orderRepository.findByUserIdAndCheckoutRequestId(
                 UserId.of(userId), CheckoutRequestId.of(checkoutRequestId)))
                 .thenReturn(Optional.of(existing));
 
-        OrderView view = useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId));
+        OrderView view = useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId));
 
         assertThat(view.id()).isEqualTo(existing.id());
         assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
@@ -128,14 +128,14 @@ class CheckoutUseCaseTest {
         when(cartRepository.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        OrderView view = useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId));
+        OrderView view = useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId));
 
         assertThat(view.status()).isEqualTo(OrderStatus.CREATED);
         assertThat(view.userId()).isEqualTo(UserId.of(userId));
         assertThat(view.items()).hasSize(1);
         assertThat(view.items().get(0).packageId()).isEqualTo(PACKAGE_ID);
-        assertThat(view.items().get(0).quantity()).isEqualTo(2);
-        assertThat(view.totalAmount()).isEqualByComparingTo("19.98");
+        assertThat(view.items().get(0).quantity()).isEqualTo(1);
+        assertThat(view.totalAmount()).isEqualByComparingTo("9.99");
         assertThat(view.currency()).isEqualTo("USD");
 
         ArgumentCaptor<Cart> cartCaptor = ArgumentCaptor.forClass(Cart.class);

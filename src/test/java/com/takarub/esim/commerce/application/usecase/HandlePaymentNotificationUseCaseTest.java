@@ -35,8 +35,13 @@ import com.takarub.esim.commerce.application.port.VerifiedPaymentResult;
 import com.takarub.esim.commerce.application.result.PaymentVerificationDisposition;
 import com.takarub.esim.commerce.application.result.PaymentVerificationView;
 import com.takarub.esim.commerce.domain.cart.CartId;
+import com.takarub.esim.commerce.domain.fulfillment.FulfillmentStatus;
+import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWork;
+import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
 import com.takarub.esim.commerce.domain.order.CheckoutRequestId;
 import com.takarub.esim.commerce.domain.order.Order;
+import com.takarub.esim.commerce.domain.order.OrderId;
+import com.takarub.esim.commerce.domain.order.OrderItem;
 import com.takarub.esim.commerce.domain.order.OrderItemSnapshot;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.order.OrderStatus;
@@ -67,6 +72,8 @@ class HandlePaymentNotificationUseCaseTest {
     @Mock
     private OrderRepository orderRepository;
     @Mock
+    private FulfillmentWorkRepository fulfillmentWorkRepository;
+    @Mock
     private PaymentVerifier paymentVerifier;
     @Mock
     private ClockProvider clock;
@@ -82,13 +89,16 @@ class HandlePaymentNotificationUseCaseTest {
                 transactionRunner,
                 paymentAttemptRepository,
                 orderRepository,
+                fulfillmentWorkRepository,
                 paymentVerifier,
+                idGenerator,
                 clock);
         lenient().doAnswer(invocation -> {
                     Supplier<?> work = invocation.getArgument(0);
                     return work.get();
                 }).when(transactionRunner).execute(org.mockito.ArgumentMatchers.<Supplier<?>>any());
         lenient().when(clock.now()).thenReturn(NOW);
+        lenient().when(fulfillmentWorkRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
@@ -112,6 +122,15 @@ class HandlePaymentNotificationUseCaseTest {
         assertThat(order.status()).isEqualTo(OrderStatus.PAID);
         verify(paymentAttemptRepository).save(attempt);
         verify(orderRepository).save(order);
+
+        ArgumentCaptor<FulfillmentWork> workCaptor = ArgumentCaptor.forClass(FulfillmentWork.class);
+        verify(fulfillmentWorkRepository).save(workCaptor.capture());
+        FulfillmentWork work = workCaptor.getValue();
+        assertThat(work.status()).isEqualTo(FulfillmentStatus.PENDING);
+        assertThat(work.orderId()).isEqualTo(order.id());
+        assertThat(work.supplierKey()).isEqualTo("LIKE_CARD");
+        assertThat(work.remoteProductId()).isEqualTo("5653");
+        assertThat(work.lastErrorCode()).isNull();
     }
 
     @Test
@@ -133,6 +152,7 @@ class HandlePaymentNotificationUseCaseTest {
         assertThat(attempt.externalTransactionId()).isEqualTo("ext-t");
         verify(paymentAttemptRepository).save(attempt);
         verify(orderRepository).save(order);
+        verify(fulfillmentWorkRepository, never()).save(any());
     }
 
     @Test
@@ -230,6 +250,7 @@ class HandlePaymentNotificationUseCaseTest {
         assertThat(view.disposition()).isEqualTo(PaymentVerificationDisposition.IDEMPOTENT);
         verify(paymentAttemptRepository, never()).save(any());
         verify(orderRepository, never()).save(any());
+        verify(fulfillmentWorkRepository, never()).save(any());
     }
 
     @Test
@@ -495,6 +516,74 @@ class HandlePaymentNotificationUseCaseTest {
         verify(orderRepository, never()).save(any());
     }
 
+    @Test
+    void legacyNullSupplierSnapshotStillPaysAndCreatesBlockedFulfillment() {
+        Order order = pendingPaymentLegacyOrder();
+        PaymentAttempt attempt = initiatedAttempt(order);
+        stubPreReadAndReload(attempt);
+        when(orderRepository.findById(order.id())).thenReturn(Optional.of(order));
+        when(paymentVerifier.verify(any())).thenReturn(succeeded(attempt, "ext-o", "ext-t"));
+        when(paymentAttemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentVerificationView view = useCase.execute(command(attempt, "success"));
+
+        assertThat(view.disposition()).isEqualTo(PaymentVerificationDisposition.APPLIED);
+        assertThat(attempt.status()).isEqualTo(PaymentAttemptStatus.CONFIRMED);
+        assertThat(order.status()).isEqualTo(OrderStatus.PAID);
+
+        ArgumentCaptor<FulfillmentWork> workCaptor = ArgumentCaptor.forClass(FulfillmentWork.class);
+        verify(fulfillmentWorkRepository).save(workCaptor.capture());
+        FulfillmentWork work = workCaptor.getValue();
+        assertThat(work.status()).isEqualTo(FulfillmentStatus.BLOCKED);
+        assertThat(work.supplierKey()).isNull();
+        assertThat(work.remoteProductId()).isNull();
+        assertThat(work.lastErrorCode())
+                .isEqualTo(HandlePaymentNotificationUseCase.ERROR_LEGACY_SUPPLIER_SELECTION_MISSING);
+        assertThat(work.lastErrorMessage())
+                .contains("no frozen supplier selection");
+    }
+
+    @Test
+    void historicalQuantityNotOneStillPaysAndCreatesBlockedFulfillment() {
+        Order order = pendingPaymentOrderWithQuantity(2);
+        PaymentAttempt attempt = initiatedAttempt(order);
+        stubPreReadAndReload(attempt);
+        when(orderRepository.findById(order.id())).thenReturn(Optional.of(order));
+        when(paymentVerifier.verify(any())).thenReturn(succeeded(attempt, "o", "t"));
+        when(paymentAttemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        useCase.execute(command(attempt, "success"));
+
+        assertThat(order.status()).isEqualTo(OrderStatus.PAID);
+        ArgumentCaptor<FulfillmentWork> workCaptor = ArgumentCaptor.forClass(FulfillmentWork.class);
+        verify(fulfillmentWorkRepository).save(workCaptor.capture());
+        assertThat(workCaptor.getValue().status()).isEqualTo(FulfillmentStatus.BLOCKED);
+        assertThat(workCaptor.getValue().lastErrorCode())
+                .isEqualTo(HandlePaymentNotificationUseCase.ERROR_UNSUPPORTED_ORDER_QUANTITY);
+    }
+
+    @Test
+    void unexpectedItemCountStillPaysAndCreatesBlockedFulfillment() {
+        Order order = pendingPaymentMultiItemOrder();
+        PaymentAttempt attempt = initiatedAttempt(order);
+        stubPreReadAndReload(attempt);
+        when(orderRepository.findById(order.id())).thenReturn(Optional.of(order));
+        when(paymentVerifier.verify(any())).thenReturn(succeeded(attempt, "o", "t"));
+        when(paymentAttemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        useCase.execute(command(attempt, "success"));
+
+        assertThat(order.status()).isEqualTo(OrderStatus.PAID);
+        ArgumentCaptor<FulfillmentWork> workCaptor = ArgumentCaptor.forClass(FulfillmentWork.class);
+        verify(fulfillmentWorkRepository).save(workCaptor.capture());
+        assertThat(workCaptor.getValue().status()).isEqualTo(FulfillmentStatus.BLOCKED);
+        assertThat(workCaptor.getValue().lastErrorCode())
+                .isEqualTo(HandlePaymentNotificationUseCase.ERROR_UNEXPECTED_ORDER_ITEM_COUNT);
+    }
+
     private void stubPreReadAndReload(PaymentAttempt attempt) {
         when(paymentAttemptRepository.findById(attempt.id())).thenReturn(Optional.of(attempt));
     }
@@ -565,9 +654,87 @@ class HandlePaymentNotificationUseCaseTest {
                 List.of(line()));
     }
 
+    private Order pendingPaymentOrderWithQuantity(int quantity) {
+        Order order = Order.create(
+                idGenerator,
+                clock,
+                CartId.of(UUID.randomUUID()),
+                UserId.of(userId),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
+                List.of(lineWithQuantity(quantity)));
+        order.startPayment(clock);
+        return order;
+    }
+
+    private Order pendingPaymentMultiItemOrder() {
+        Order order = Order.create(
+                idGenerator,
+                clock,
+                CartId.of(UUID.randomUUID()),
+                UserId.of(userId),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
+                List.of(lineWithPackage("pkg-1"), lineWithPackage("pkg-2")));
+        order.startPayment(clock);
+        return order;
+    }
+
+    private Order pendingPaymentLegacyOrder() {
+        OrderItem legacyItem = OrderItem.reconstitute(
+                "pkg-legacy",
+                "JO",
+                "الأردن",
+                "Jordan",
+                LocationType.COUNTRY,
+                1,
+                DataUnit.GB,
+                7,
+                AMOUNT,
+                CURRENCY,
+                1,
+                null,
+                null,
+                null,
+                null);
+        Order order = Order.reconstitute(
+                OrderId.of(UUID.randomUUID()),
+                NOW,
+                NOW,
+                CartId.of(UUID.randomUUID()),
+                UserId.of(userId),
+                CheckoutRequestId.of(UUID.randomUUID().toString()),
+                OrderStatus.PENDING_PAYMENT,
+                List.of(legacyItem),
+                AMOUNT,
+                CURRENCY);
+        return order;
+    }
+
     private static OrderItemSnapshot line() {
+        return lineWithQuantity(1);
+    }
+
+    private static OrderItemSnapshot lineWithQuantity(int quantity) {
         return new OrderItemSnapshot(
                 "pkg-1",
+                "JO",
+                "الأردن",
+                "Jordan",
+                LocationType.COUNTRY,
+                1,
+                DataUnit.GB,
+                7,
+                AMOUNT,
+                CURRENCY,
+                quantity,
+                "LIKE_CARD",
+                "5653",
+                new BigDecimal("4.7100"),
+                "USD");
+    }
+
+    private static OrderItemSnapshot lineWithPackage(String packageId) {
+        return new OrderItemSnapshot(
+                packageId,
                 "JO",
                 "الأردن",
                 "Jordan",

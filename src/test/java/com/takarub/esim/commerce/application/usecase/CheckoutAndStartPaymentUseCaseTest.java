@@ -109,14 +109,14 @@ class CheckoutAndStartPaymentUseCaseTest {
         when(paymentAttemptRepository.save(any(PaymentAttempt.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        CheckoutPaymentView view = useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId));
+        CheckoutPaymentView view = useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId));
 
         assertThat(view.orderStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
         assertThat(view.paymentAttemptStatus()).isEqualTo(PaymentAttemptStatus.INITIATED);
-        assertThat(view.totalAmount()).isEqualByComparingTo("19.98");
+        assertThat(view.totalAmount()).isEqualByComparingTo("9.99");
         assertThat(view.currency()).isEqualTo("USD");
         assertThat(view.items()).hasSize(1);
-        assertThat(view.items().get(0).quantity()).isEqualTo(2);
+        assertThat(view.items().get(0).quantity()).isEqualTo(1);
         assertThat(view.externalOrderId()).isNull();
         assertThat(view.externalTransactionId()).isNull();
 
@@ -176,7 +176,7 @@ class CheckoutAndStartPaymentUseCaseTest {
         when(paymentAttemptRepository.findActiveInitiatedByOrderId(existing.id()))
                 .thenReturn(Optional.of(active));
 
-        CheckoutPaymentView view = useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId));
+        CheckoutPaymentView view = useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId));
 
         assertThat(view.orderId()).isEqualTo(existing.id());
         assertThat(view.paymentAttemptId()).isEqualTo(active.id());
@@ -204,7 +204,7 @@ class CheckoutAndStartPaymentUseCaseTest {
         when(paymentAttemptRepository.save(any(PaymentAttempt.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        CheckoutPaymentView view = useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId));
+        CheckoutPaymentView view = useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId));
 
         assertThat(view.orderId()).isEqualTo(existing.id());
         assertThat(view.orderStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
@@ -227,7 +227,7 @@ class CheckoutAndStartPaymentUseCaseTest {
         when(paymentAttemptRepository.findActiveInitiatedByOrderId(existing.id()))
                 .thenReturn(Optional.of(active));
 
-        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId)))
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(ConflictException.class);
 
         verify(orderRepository, never()).save(any());
@@ -243,7 +243,7 @@ class CheckoutAndStartPaymentUseCaseTest {
         when(paymentAttemptRepository.findActiveInitiatedByOrderId(existing.id()))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId)))
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(ConflictException.class);
 
         verify(paymentAttemptRepository, never()).save(any());
@@ -257,7 +257,7 @@ class CheckoutAndStartPaymentUseCaseTest {
                 UserId.of(userId), CheckoutRequestId.of(checkoutRequestId)))
                 .thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId)))
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(ConflictException.class);
 
         verify(paymentAttemptRepository, never()).findActiveInitiatedByOrderId(any());
@@ -273,7 +273,7 @@ class CheckoutAndStartPaymentUseCaseTest {
                 UserId.of(userId), CheckoutRequestId.of(checkoutRequestId)))
                 .thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId)))
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(ConflictException.class);
 
         verify(paymentAttemptRepository, never()).findActiveInitiatedByOrderId(any());
@@ -288,7 +288,7 @@ class CheckoutAndStartPaymentUseCaseTest {
                 UserId.of(userId), CheckoutRequestId.of(checkoutRequestId)))
                 .thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 2, checkoutRequestId)))
+        assertThatThrownBy(() -> useCase.execute(command(PACKAGE_ID, 1, checkoutRequestId)))
                 .isInstanceOf(ConflictException.class);
 
         verify(paymentAttemptRepository, never()).findActiveInitiatedByOrderId(any());

@@ -74,21 +74,21 @@ class CheckoutControllerTest {
                         .content("""
                                 {
                                   "packageId": "pkg-1",
-                                  "quantity": 2
+                                  "quantity": 1
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderId").exists())
                 .andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
-                .andExpect(jsonPath("$.totalAmount").value(19.98))
+                .andExpect(jsonPath("$.totalAmount").value(9.99))
                 .andExpect(jsonPath("$.currency").value("USD"))
                 .andExpect(jsonPath("$.paymentAttemptId").exists())
                 .andExpect(jsonPath("$.paymentAttemptStatus").value("INITIATED"))
                 .andExpect(jsonPath("$.externalOrderId").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.externalTransactionId").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.items[0].packageId").value(PACKAGE_ID))
-                .andExpect(jsonPath("$.items[0].quantity").value(2))
-                .andExpect(jsonPath("$.items[0].lineTotal").value(19.98))
+                .andExpect(jsonPath("$.items[0].quantity").value(1))
+                .andExpect(jsonPath("$.items[0].lineTotal").value(9.99))
                 .andExpect(jsonPath("$.cartId").doesNotExist())
                 .andExpect(jsonPath("$.userId").doesNotExist())
                 .andExpect(jsonPath("$.checkoutRequestId").doesNotExist());
@@ -109,7 +109,7 @@ class CheckoutControllerTest {
                         .content("""
                                 {
                                   "packageId": "pkg-1",
-                                  "quantity": 3
+                                  "quantity": 1
                                 }
                                 """))
                 .andExpect(status().isOk());
@@ -119,8 +119,28 @@ class CheckoutControllerTest {
         CheckoutCommand command = captor.getValue();
         assertThat(command.userId()).isEqualTo(userId);
         assertThat(command.packageId()).isEqualTo(PACKAGE_ID);
-        assertThat(command.quantity()).isEqualTo(3);
+        assertThat(command.quantity()).isEqualTo(1);
         assertThat(command.checkoutRequestId()).isEqualTo(key);
+    }
+
+    @Test
+    void quantityGreaterThanOneReturns400() throws Exception {
+        String userId = UUID.randomUUID().toString();
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(userId));
+
+        mockMvc.perform(post("/api/v1/checkout")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "packageId": "pkg-1",
+                                  "quantity": 2
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        verify(checkoutAndStartPaymentUseCase, never()).execute(any());
     }
 
     @Test
@@ -365,13 +385,13 @@ class CheckoutControllerTest {
                 7,
                 new BigDecimal("9.99"),
                 "USD",
-                2,
-                new BigDecimal("19.98"));
+                1,
+                new BigDecimal("9.99"));
         return new CheckoutPaymentView(
                 OrderId.of(UUID.randomUUID()),
                 OrderStatus.PENDING_PAYMENT,
                 List.of(item),
-                new BigDecimal("19.98"),
+                new BigDecimal("9.99"),
                 "USD",
                 FIXED,
                 FIXED,
