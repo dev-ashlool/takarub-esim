@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.web.client.RestClient;
 
 import com.takarub.esim.commerce.application.usecase.ProcessNextFulfillmentUseCase;
 import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
@@ -13,8 +14,10 @@ import com.takarub.esim.commerce.infrastructure.scheduler.FulfillmentExecutionSc
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
+import com.takarub.esim.supplier.application.port.SupplierCredentialsPort;
 import com.takarub.esim.supplier.domain.port.SupplierPurchasePort;
 import com.takarub.esim.supplier.infrastructure.adapters.fake.FakeSupplierPurchaseAdapter;
+import com.takarub.esim.supplier.infrastructure.adapters.likecard.LikeCardPurchaseAdapter;
 
 class CommerceFulfillmentExecutionConfigTest {
 
@@ -22,24 +25,57 @@ class CommerceFulfillmentExecutionConfigTest {
             .withUserConfiguration(
                     CommerceFulfillmentExecutionConfig.class,
                     FakeSupplierPurchaseAdapter.class,
+                    LikeCardPurchaseAdapter.class,
                     FulfillmentExecutionScheduler.class)
             .withBean(TransactionRunner.class, () -> mock(TransactionRunner.class))
             .withBean(FulfillmentWorkRepository.class, () -> mock(FulfillmentWorkRepository.class))
             .withBean(ProvisionedEsimRepository.class, () -> mock(ProvisionedEsimRepository.class))
             .withBean(IdGenerator.class, () -> mock(IdGenerator.class))
-            .withBean(ClockProvider.class, () -> mock(ClockProvider.class));
+            .withBean(ClockProvider.class, () -> mock(ClockProvider.class))
+            .withBean(RestClient.Builder.class, RestClient::builder)
+            .withBean(SupplierCredentialsPort.class, () -> mock(SupplierCredentialsPort.class));
 
     @Test
-    void workerDisabledFakeDisabledStartsCleanWithoutWorkerUseCase() {
+    void workerDisabledBothPurchaseAdaptersDisabledStartsCleanWithoutPurchasePort() {
+        baseRunner
+                .withPropertyValues(
+                        "takarub.commerce.fulfillment-execution.enabled=false",
+                        "takarub.supplier.fake-purchase.enabled=false",
+                        "takarub.supplier.likecard-purchase.enabled=false")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(ProcessNextFulfillmentUseCase.class);
+                    assertThat(context).doesNotHaveBean(FulfillmentExecutionScheduler.class);
+                    assertThat(context).doesNotHaveBean(FakeSupplierPurchaseAdapter.class);
+                    assertThat(context).doesNotHaveBean(LikeCardPurchaseAdapter.class);
+                    assertThat(context).doesNotHaveBean(SupplierPurchasePort.class);
+                });
+    }
+
+    @Test
+    void likecardPurchaseDisabledByDefaultAbsentProperty() {
         baseRunner
                 .withPropertyValues(
                         "takarub.commerce.fulfillment-execution.enabled=false",
                         "takarub.supplier.fake-purchase.enabled=false")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean(ProcessNextFulfillmentUseCase.class);
-                    assertThat(context).doesNotHaveBean(FulfillmentExecutionScheduler.class);
-                    assertThat(context).doesNotHaveBean(FakeSupplierPurchaseAdapter.class);
+                    assertThat(context).doesNotHaveBean(LikeCardPurchaseAdapter.class);
                     assertThat(context).doesNotHaveBean(SupplierPurchasePort.class);
+                });
+    }
+
+    @Test
+    void likecardPurchaseEnabledOnlyByLikecardProperty() {
+        baseRunner
+                .withPropertyValues(
+                        "takarub.commerce.fulfillment-execution.enabled=false",
+                        "takarub.supplier.fake-purchase.enabled=false",
+                        "takarub.supplier.likecard-purchase.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(LikeCardPurchaseAdapter.class);
+                    assertThat(context).hasSingleBean(SupplierPurchasePort.class);
+                    assertThat(context).doesNotHaveBean(FakeSupplierPurchaseAdapter.class);
+                    assertThat(context).getBean(SupplierPurchasePort.class)
+                            .isInstanceOf(LikeCardPurchaseAdapter.class);
                 });
     }
 
@@ -48,10 +84,12 @@ class CommerceFulfillmentExecutionConfigTest {
         baseRunner
                 .withPropertyValues(
                         "takarub.commerce.fulfillment-execution.enabled=false",
-                        "takarub.supplier.fake-purchase.enabled=true")
+                        "takarub.supplier.fake-purchase.enabled=true",
+                        "takarub.supplier.likecard-purchase.enabled=false")
                 .run(context -> {
                     assertThat(context).hasSingleBean(FakeSupplierPurchaseAdapter.class);
                     assertThat(context).hasSingleBean(SupplierPurchasePort.class);
+                    assertThat(context).doesNotHaveBean(LikeCardPurchaseAdapter.class);
                     assertThat(context).doesNotHaveBean(ProcessNextFulfillmentUseCase.class);
                     assertThat(context).doesNotHaveBean(FulfillmentExecutionScheduler.class);
                 });
@@ -62,7 +100,8 @@ class CommerceFulfillmentExecutionConfigTest {
         baseRunner
                 .withPropertyValues(
                         "takarub.commerce.fulfillment-execution.enabled=true",
-                        "takarub.supplier.fake-purchase.enabled=true")
+                        "takarub.supplier.fake-purchase.enabled=true",
+                        "takarub.supplier.likecard-purchase.enabled=false")
                 .run(context -> {
                     assertThat(context).hasSingleBean(FakeSupplierPurchaseAdapter.class);
                     assertThat(context).hasSingleBean(ProcessNextFulfillmentUseCase.class);
@@ -83,7 +122,18 @@ class CommerceFulfillmentExecutionConfigTest {
                 .withBean(ClockProvider.class, () -> mock(ClockProvider.class))
                 .withPropertyValues(
                         "takarub.commerce.fulfillment-execution.enabled=true",
-                        "takarub.supplier.fake-purchase.enabled=false")
+                        "takarub.supplier.fake-purchase.enabled=false",
+                        "takarub.supplier.likecard-purchase.enabled=false")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    void bothPurchaseAdaptersEnabledWithWorkerFailsFast() {
+        baseRunner
+                .withPropertyValues(
+                        "takarub.commerce.fulfillment-execution.enabled=true",
+                        "takarub.supplier.fake-purchase.enabled=true",
+                        "takarub.supplier.likecard-purchase.enabled=true")
                 .run(context -> assertThat(context).hasFailed());
     }
 }

@@ -50,9 +50,11 @@ identity:
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# Fulfillment execution (worker) and fake supplier purchase are SEPARATE switches.
+# Fulfillment execution (worker) and purchase adapters are SEPARATE switches.
 # Enabling the worker without any SupplierPurchasePort bean fails fast at startup.
+# fake-purchase and likecard-purchase must not both be enabled (ambiguous bean).
 # Do not enable fake-purchase against real paid traffic.
+# Do not enable likecard-purchase unless intentionally calling LikeCard /buy.
 # -----------------------------------------------------------------------------
 takarub:
   commerce:
@@ -62,4 +64,6 @@ takarub:
       initial-delay-ms: 15000
   supplier:
     fake-purchase:
+      enabled: false
+    likecard-purchase:
       enabled: false
