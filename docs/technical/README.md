@@ -37,7 +37,7 @@ flowchart LR
   Adapters --> Redis[(Redis optional)]
 ```
 
-**Not in scope yet:** Order, Payment, fulfillment domains (planned next).
+**Commerce customer APIs** (cart, checkout, payment start, orders, eSIM activation) are documented in [02-api-catalog.md](./02-api-catalog.md).
 
 ## How to read this set
 
