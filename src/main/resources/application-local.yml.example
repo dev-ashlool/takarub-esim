@@ -66,6 +66,13 @@ takarub:
     # Requires identity.mail.enabled=true and active SMTP config for real delivery.
     esim-email-notification:
       enabled: false
+    # Conservative reconciliation: stale PROCESSING -> UNKNOWN only.
+    # Does NOT retry supplier purchases and does NOT move UNKNOWN back to PENDING.
+    fulfillment-reconciliation:
+      enabled: false
+      stale-processing-threshold: PT30M
+      fixed-delay-ms: 60000
+      initial-delay-ms: 30000
   supplier:
     fake-purchase:
       enabled: false

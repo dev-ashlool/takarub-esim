@@ -40,4 +40,34 @@ public interface FulfillmentWorkJpaRepository extends JpaRepository<FulfillmentW
             @Param("processing") FulfillmentStatus processing,
             @Param("claimedAt") Instant claimedAt,
             @Param("updatedAt") Instant updatedAt);
+
+    @Query("""
+            SELECT f.id FROM FulfillmentWorkJpaEntity f
+            WHERE f.status = :processing AND f.claimedAt < :claimedBefore
+            ORDER BY f.claimedAt ASC, f.id ASC
+            """)
+    List<String> findStaleProcessingIdsOrdered(
+            @Param("processing") FulfillmentStatus processing,
+            @Param("claimedBefore") Instant claimedBefore,
+            Pageable pageable);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE FulfillmentWorkJpaEntity f
+            SET f.status = :unknown,
+                f.lastErrorCode = :errorCode,
+                f.lastErrorMessage = :errorMessage,
+                f.updatedAt = :updatedAt
+            WHERE f.id = :id
+              AND f.status = :processing
+              AND f.claimedAt < :claimedBefore
+            """)
+    int tryMarkStaleProcessingUnknown(
+            @Param("id") String id,
+            @Param("processing") FulfillmentStatus processing,
+            @Param("unknown") FulfillmentStatus unknown,
+            @Param("claimedBefore") Instant claimedBefore,
+            @Param("errorCode") String errorCode,
+            @Param("errorMessage") String errorMessage,
+            @Param("updatedAt") Instant updatedAt);
 }

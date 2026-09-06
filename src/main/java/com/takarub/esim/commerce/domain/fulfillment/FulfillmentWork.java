@@ -15,6 +15,19 @@ import com.takarub.esim.identity.shared.time.ClockProvider;
  */
 public class FulfillmentWork {
 
+    /**
+     * Error code persisted when stale {@link FulfillmentStatus#PROCESSING} is reconciled to
+     * {@link FulfillmentStatus#UNKNOWN}. Does not imply a safe repurchase.
+     */
+    public static final String STALE_PROCESSING_ERROR_CODE = "FULFILLMENT_STALE_PROCESSING";
+
+    /**
+     * Safe operator-facing message for stale PROCESSING reconciliation. Contains no supplier or
+     * activation secrets.
+     */
+    public static final String STALE_PROCESSING_ERROR_MESSAGE =
+            "Fulfillment execution exceeded the processing threshold and requires reconciliation.";
+
     private final FulfillmentId id;
     private final OrderId orderId;
     private final String supplierKey;
@@ -188,6 +201,14 @@ public class FulfillmentWork {
         this.lastErrorCode = errorCode.trim();
         this.lastErrorMessage = errorMessage.trim();
         this.updatedAt = clock.now();
+    }
+
+    /**
+     * Marks stale {@link FulfillmentStatus#PROCESSING} as {@link FulfillmentStatus#UNKNOWN} for
+     * operator reconciliation. Does not authorize a supplier repurchase.
+     */
+    public void markUnknownFromStaleProcessing(ClockProvider clock) {
+        markUnknown(clock, STALE_PROCESSING_ERROR_CODE, STALE_PROCESSING_ERROR_MESSAGE);
     }
 
     /**

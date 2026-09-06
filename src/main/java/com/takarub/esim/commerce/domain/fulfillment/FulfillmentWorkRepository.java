@@ -1,5 +1,7 @@
 package com.takarub.esim.commerce.domain.fulfillment;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import com.takarub.esim.commerce.domain.order.OrderId;
@@ -23,4 +25,20 @@ public interface FulfillmentWorkRepository {
      * when the queue is empty or all candidates lose a concurrent race.
      */
     Optional<FulfillmentWork> claimNextPending(ClockProvider clock);
+
+    /**
+     * Returns up to {@code limit} PROCESSING work ids with {@code claimedAt} strictly before
+     * {@code claimedBefore}, ordered by claimedAt ASC then id ASC.
+     */
+    List<FulfillmentId> findStaleProcessingIds(Instant claimedBefore, int limit);
+
+    /**
+     * Conditionally marks PROCESSING work UNKNOWN when still PROCESSING and {@code claimedAt}
+     * strictly before {@code claimedBefore}. Returns empty when the row lost a race or is no longer
+     * eligible.
+     */
+    Optional<FulfillmentWork> tryMarkStaleProcessingUnknown(
+            FulfillmentId id,
+            Instant claimedBefore,
+            ClockProvider clock);
 }

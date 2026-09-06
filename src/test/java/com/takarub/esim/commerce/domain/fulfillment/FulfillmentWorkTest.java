@@ -311,6 +311,47 @@ class FulfillmentWorkTest {
     }
 
     @Test
+    void markUnknownFromStaleProcessingUsesSafeErrorValues() {
+        FulfillmentWork work = processingWork();
+        Instant claimedAt = work.claimedAt();
+
+        work.markUnknownFromStaleProcessing(laterClock);
+
+        assertThat(work.status()).isEqualTo(FulfillmentStatus.UNKNOWN);
+        assertThat(work.claimedAt()).isEqualTo(claimedAt);
+        assertThat(work.lastErrorCode()).isEqualTo(FulfillmentWork.STALE_PROCESSING_ERROR_CODE);
+        assertThat(work.lastErrorMessage()).isEqualTo(FulfillmentWork.STALE_PROCESSING_ERROR_MESSAGE);
+        assertThat(work.updatedAt()).isEqualTo(LATER);
+    }
+
+    @Test
+    void markUnknownFromStaleProcessingRejectsNonProcessing() {
+        FulfillmentWork pending = FulfillmentWork.pending(
+                idGenerator, clock, OrderId.of(UUID.randomUUID()), "LIKE_CARD", "5653");
+        FulfillmentWork fulfilled = processingWork();
+        fulfilled.markFulfilled(laterClock);
+        FulfillmentWork blocked = FulfillmentWork.blocked(
+                idGenerator,
+                clock,
+                OrderId.of(UUID.randomUUID()),
+                null,
+                null,
+                "CODE",
+                "msg");
+        FulfillmentWork unknown = processingWork();
+        unknown.markUnknown(laterClock, "TIMEOUT", "Ambiguous");
+
+        assertThatThrownBy(() -> pending.markUnknownFromStaleProcessing(laterClock))
+                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> fulfilled.markUnknownFromStaleProcessing(laterClock))
+                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> blocked.markUnknownFromStaleProcessing(laterClock))
+                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> unknown.markUnknownFromStaleProcessing(laterClock))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
     void markBlockedFromProcessing() {
         FulfillmentWork work = processingWork();
         Instant claimedAt = work.claimedAt();

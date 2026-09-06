@@ -67,4 +67,34 @@ public class FulfillmentWorkRepositoryAdapter implements FulfillmentWorkReposito
         }
         return Optional.empty();
     }
+
+    @Override
+    public List<FulfillmentId> findStaleProcessingIds(Instant claimedBefore, int limit) {
+        return fulfillmentWorkJpaRepository
+                .findStaleProcessingIdsOrdered(
+                        FulfillmentStatus.PROCESSING,
+                        claimedBefore,
+                        PageRequest.of(0, limit))
+                .stream()
+                .map(FulfillmentId::of)
+                .toList();
+    }
+
+    @Override
+    public Optional<FulfillmentWork> tryMarkStaleProcessingUnknown(
+            FulfillmentId id, Instant claimedBefore, ClockProvider clock) {
+        Instant now = clock.now();
+        int updated = fulfillmentWorkJpaRepository.tryMarkStaleProcessingUnknown(
+                id.value().toString(),
+                FulfillmentStatus.PROCESSING,
+                FulfillmentStatus.UNKNOWN,
+                claimedBefore,
+                FulfillmentWork.STALE_PROCESSING_ERROR_CODE,
+                FulfillmentWork.STALE_PROCESSING_ERROR_MESSAGE,
+                now);
+        if (updated != 1) {
+            return Optional.empty();
+        }
+        return fulfillmentWorkJpaRepository.findById(id.value().toString()).map(mapper::toDomain);
+    }
 }
