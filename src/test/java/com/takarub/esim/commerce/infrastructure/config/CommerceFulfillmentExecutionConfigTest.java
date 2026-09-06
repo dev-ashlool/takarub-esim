@@ -7,8 +7,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.web.client.RestClient;
 
+import com.takarub.esim.commerce.application.port.CustomerEmailLookup;
+import com.takarub.esim.commerce.application.port.EsimReadyCustomerNotifier;
 import com.takarub.esim.commerce.application.usecase.ProcessNextFulfillmentUseCase;
 import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
+import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.provisioning.ProvisionedEsimRepository;
 import com.takarub.esim.commerce.infrastructure.scheduler.FulfillmentExecutionScheduler;
 import com.takarub.esim.identity.application.port.TransactionRunner;
@@ -30,6 +33,9 @@ class CommerceFulfillmentExecutionConfigTest {
             .withBean(TransactionRunner.class, () -> mock(TransactionRunner.class))
             .withBean(FulfillmentWorkRepository.class, () -> mock(FulfillmentWorkRepository.class))
             .withBean(ProvisionedEsimRepository.class, () -> mock(ProvisionedEsimRepository.class))
+            .withBean(OrderRepository.class, () -> mock(OrderRepository.class))
+            .withBean(CustomerEmailLookup.class, () -> mock(CustomerEmailLookup.class))
+            .withBean(EsimReadyCustomerNotifier.class, () -> mock(EsimReadyCustomerNotifier.class))
             .withBean(IdGenerator.class, () -> mock(IdGenerator.class))
             .withBean(ClockProvider.class, () -> mock(ClockProvider.class))
             .withBean(RestClient.Builder.class, RestClient::builder)
@@ -118,6 +124,9 @@ class CommerceFulfillmentExecutionConfigTest {
                 .withBean(TransactionRunner.class, () -> mock(TransactionRunner.class))
                 .withBean(FulfillmentWorkRepository.class, () -> mock(FulfillmentWorkRepository.class))
                 .withBean(ProvisionedEsimRepository.class, () -> mock(ProvisionedEsimRepository.class))
+                .withBean(OrderRepository.class, () -> mock(OrderRepository.class))
+                .withBean(CustomerEmailLookup.class, () -> mock(CustomerEmailLookup.class))
+                .withBean(EsimReadyCustomerNotifier.class, () -> mock(EsimReadyCustomerNotifier.class))
                 .withBean(IdGenerator.class, () -> mock(IdGenerator.class))
                 .withBean(ClockProvider.class, () -> mock(ClockProvider.class))
                 .withPropertyValues(

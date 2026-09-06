@@ -4,8 +4,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.takarub.esim.commerce.application.port.CustomerEmailLookup;
+import com.takarub.esim.commerce.application.port.EsimReadyCustomerNotifier;
 import com.takarub.esim.commerce.application.usecase.ProcessNextFulfillmentUseCase;
 import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
+import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.provisioning.ProvisionedEsimRepository;
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.shared.id.IdGenerator;
@@ -29,6 +32,9 @@ public class CommerceFulfillmentExecutionConfig {
             TransactionRunner transactionRunner,
             FulfillmentWorkRepository fulfillmentWorkRepository,
             ProvisionedEsimRepository provisionedEsimRepository,
+            OrderRepository orderRepository,
+            CustomerEmailLookup customerEmailLookup,
+            EsimReadyCustomerNotifier esimReadyCustomerNotifier,
             SupplierPurchasePort supplierPurchasePort,
             IdGenerator idGenerator,
             ClockProvider clockProvider) {
@@ -36,6 +42,9 @@ public class CommerceFulfillmentExecutionConfig {
                 transactionRunner,
                 fulfillmentWorkRepository,
                 provisionedEsimRepository,
+                orderRepository,
+                customerEmailLookup,
+                esimReadyCustomerNotifier,
                 supplierPurchasePort,
                 idGenerator,
                 clockProvider);

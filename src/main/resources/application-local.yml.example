@@ -62,6 +62,10 @@ takarub:
       enabled: false
       fixed-delay-ms: 5000
       initial-delay-ms: 15000
+    # Best-effort eSIM-ready customer email AFTER successful fulfill commit (no activation secrets).
+    # Requires identity.mail.enabled=true and active SMTP config for real delivery.
+    esim-email-notification:
+      enabled: false
   supplier:
     fake-purchase:
       enabled: false
