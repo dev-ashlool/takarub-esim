@@ -8,6 +8,7 @@ import com.takarub.esim.commerce.application.usecase.AddItemToCartUseCase;
 import com.takarub.esim.commerce.application.usecase.CheckoutAndStartPaymentUseCase;
 import com.takarub.esim.commerce.application.usecase.CheckoutUseCase;
 import com.takarub.esim.commerce.application.usecase.GetCartUseCase;
+import com.takarub.esim.commerce.application.usecase.GetCustomerEsimUseCase;
 import com.takarub.esim.commerce.application.usecase.GetMyOrdersUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrCreateCartUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrderDetailsUseCase;
@@ -18,6 +19,7 @@ import com.takarub.esim.commerce.domain.cart.CartRepository;
 import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.payment.PaymentAttemptRepository;
+import com.takarub.esim.commerce.domain.provisioning.ProvisionedEsimRepository;
 import com.takarub.esim.identity.application.port.TransactionRunner;
 import com.takarub.esim.identity.shared.id.IdGenerator;
 import com.takarub.esim.identity.shared.time.ClockProvider;
@@ -131,5 +133,14 @@ public class CommerceUseCaseConfig {
     public GetOrderDetailsUseCase getOrderDetailsUseCase(
             OrderRepository orderRepository, FulfillmentWorkRepository fulfillmentWorkRepository) {
         return new GetOrderDetailsUseCase(orderRepository, fulfillmentWorkRepository);
+    }
+
+    @Bean
+    public GetCustomerEsimUseCase getCustomerEsimUseCase(
+            OrderRepository orderRepository,
+            FulfillmentWorkRepository fulfillmentWorkRepository,
+            ProvisionedEsimRepository provisionedEsimRepository) {
+        return new GetCustomerEsimUseCase(
+                orderRepository, fulfillmentWorkRepository, provisionedEsimRepository);
     }
 }

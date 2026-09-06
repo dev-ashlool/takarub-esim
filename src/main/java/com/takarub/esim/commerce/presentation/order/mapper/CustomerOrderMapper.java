@@ -4,16 +4,19 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.takarub.esim.commerce.application.result.CustomerEsimActivation;
 import com.takarub.esim.commerce.application.result.CustomerOrderDetails;
 import com.takarub.esim.commerce.application.result.CustomerOrderSummary;
 import com.takarub.esim.commerce.application.result.OrderItemView;
 import com.takarub.esim.commerce.domain.fulfillment.FulfillmentStatus;
+import com.takarub.esim.commerce.presentation.order.response.CustomerEsimActivationResponse;
 import com.takarub.esim.commerce.presentation.order.response.CustomerOrderItemResponse;
 import com.takarub.esim.commerce.presentation.order.response.MyOrderSummaryResponse;
 import com.takarub.esim.commerce.presentation.order.response.OrderDetailsResponse;
 
 /**
- * Maps customer order application results to REST DTOs. Omits supplier and provisioning secrets.
+ * Maps customer order application results to REST DTOs. Omits supplier identifiers; activation
+ * payload is mapped only for the dedicated eSIM endpoint.
  */
 @Component
 public class CustomerOrderMapper {
@@ -43,6 +46,17 @@ public class CustomerOrderMapper {
                 details.createdAt(),
                 details.updatedAt(),
                 toItemResponses(details.items()));
+    }
+
+    public CustomerEsimActivationResponse toEsimActivationResponse(CustomerEsimActivation activation) {
+        return new CustomerEsimActivationResponse(
+                activation.orderId().value().toString(),
+                activation.iccid(),
+                activation.qrString(),
+                activation.smdpAddress(),
+                activation.activationCode(),
+                activation.pin(),
+                activation.puk());
     }
 
     private static List<CustomerOrderItemResponse> toItemResponses(List<OrderItemView> items) {

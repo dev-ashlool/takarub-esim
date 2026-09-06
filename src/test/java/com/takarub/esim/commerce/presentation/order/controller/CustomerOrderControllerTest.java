@@ -26,10 +26,13 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.takarub.esim.commerce.application.exception.EsimNotReadyApplicationException;
 import com.takarub.esim.commerce.application.exception.OrderNotFoundApplicationException;
+import com.takarub.esim.commerce.application.result.CustomerEsimActivation;
 import com.takarub.esim.commerce.application.result.CustomerOrderDetails;
 import com.takarub.esim.commerce.application.result.CustomerOrderSummary;
 import com.takarub.esim.commerce.application.result.OrderItemView;
+import com.takarub.esim.commerce.application.usecase.GetCustomerEsimUseCase;
 import com.takarub.esim.commerce.application.usecase.GetMyOrdersUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrderDetailsUseCase;
 import com.takarub.esim.commerce.domain.fulfillment.FulfillmentStatus;
@@ -60,6 +63,9 @@ class CustomerOrderControllerTest {
 
     @MockBean
     private GetOrderDetailsUseCase getOrderDetailsUseCase;
+
+    @MockBean
+    private GetCustomerEsimUseCase getCustomerEsimUseCase;
 
     @MockBean
     private SecurityContextProvider securityContextProvider;
@@ -148,6 +154,92 @@ class CustomerOrderControllerTest {
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 
         verify(getMyOrdersUseCase, never()).execute(any());
+    }
+
+    @Test
+    void getCustomerEsimReturns200() throws Exception {
+        String userId = UUID.randomUUID().toString();
+        OrderId orderId = OrderId.of(UUID.randomUUID());
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(userId));
+        when(getCustomerEsimUseCase.execute(eq(UserId.of(userId)), eq(orderId)))
+                .thenReturn(activation(orderId));
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}/esim", orderId.value().toString())
+                        .accept(APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(orderId.value().toString()))
+                .andExpect(jsonPath("$.iccid").value("8901"))
+                .andExpect(jsonPath("$.qrString").value("LPA:1$fake.smdp$ACT-TEST"))
+                .andExpect(jsonPath("$.smdpAddress").doesNotExist())
+                .andExpect(jsonPath("$.activationCode").doesNotExist())
+                .andExpect(jsonPath("$.pin").value("1234"))
+                .andExpect(jsonPath("$.puk").value("5678"))
+                .andExpect(jsonPath("$", not(hasKey("supplierKey"))))
+                .andExpect(jsonPath("$", not(hasKey("remoteProductId"))))
+                .andExpect(jsonPath("$", not(hasKey("supplierOrderId"))))
+                .andExpect(jsonPath("$", not(hasKey("supplierCost"))))
+                .andExpect(jsonPath("$", not(hasKey("supplierError"))))
+                .andExpect(jsonPath("$", not(hasKey("errorMessage"))))
+                .andExpect(jsonPath("$", not(hasKey("credentials"))));
+    }
+
+    @Test
+    void getCustomerEsimUnauthenticatedReturns401() throws Exception {
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}/esim", UUID.randomUUID().toString()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        verify(getCustomerEsimUseCase, never()).execute(any(), any());
+    }
+
+    @Test
+    void getCustomerEsimMissingReturns404() throws Exception {
+        String userId = UUID.randomUUID().toString();
+        OrderId orderId = OrderId.of(UUID.randomUUID());
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(userId));
+        when(getCustomerEsimUseCase.execute(any(), any()))
+                .thenThrow(new OrderNotFoundApplicationException(orderId));
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}/esim", orderId.value().toString()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMERCE_ORDER_NOT_FOUND"));
+    }
+
+    @Test
+    void getCustomerEsimForeignReturns403() throws Exception {
+        String userId = UUID.randomUUID().toString();
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(userId));
+        when(getCustomerEsimUseCase.execute(any(), any()))
+                .thenThrow(new ForbiddenException("Authenticated user does not own this order"));
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}/esim", UUID.randomUUID().toString()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void getCustomerEsimNotReadyReturns409() throws Exception {
+        String userId = UUID.randomUUID().toString();
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(userId));
+        when(getCustomerEsimUseCase.execute(any(), any()))
+                .thenThrow(new EsimNotReadyApplicationException());
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}/esim", UUID.randomUUID().toString()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("COMMERCE_ESIM_NOT_READY"));
+    }
+
+    private static CustomerEsimActivation activation(OrderId orderId) {
+        return new CustomerEsimActivation(
+                orderId,
+                "8901",
+                "LPA:1$fake.smdp$ACT-TEST",
+                null,
+                null,
+                "1234",
+                "5678");
     }
 
     private static CustomerOrderSummary summary(OrderId orderId, FulfillmentStatus fulfillmentStatus) {

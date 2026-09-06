@@ -15,7 +15,9 @@ public enum CommerceApplicationErrorCode implements ErrorCode {
     PACKAGE_NOT_SELLABLE("COMMERCE_PACKAGE_NOT_SELLABLE",
             "The catalog package is not available for purchase."),
     NO_SUPPLIER_PRODUCT_AVAILABLE("COMMERCE_NO_SUPPLIER_PRODUCT_AVAILABLE",
-            "No in-stock supplier product is available for this package.");
+            "No in-stock supplier product is available for this package."),
+    ESIM_NOT_READY("COMMERCE_ESIM_NOT_READY",
+            "eSIM activation data is not ready for this order.");
 
     private final String code;
     private final String defaultMessage;
