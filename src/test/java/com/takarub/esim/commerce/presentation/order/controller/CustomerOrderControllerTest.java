@@ -157,6 +157,39 @@ class CustomerOrderControllerTest {
     }
 
     @Test
+    void getOrderDetailsUnauthenticatedReturns401() throws Exception {
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}", UUID.randomUUID().toString()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        verify(getOrderDetailsUseCase, never()).execute(any(), any());
+    }
+
+    @Test
+    void malformedOrderIdDetailsReturns400() throws Exception {
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(UUID.randomUUID().toString()));
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}", "not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        verify(getOrderDetailsUseCase, never()).execute(any(), any());
+    }
+
+    @Test
+    void malformedOrderIdEsimReturns400() throws Exception {
+        when(securityContextProvider.currentUserId()).thenReturn(Optional.of(UUID.randomUUID().toString()));
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}/esim", "not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        verify(getCustomerEsimUseCase, never()).execute(any(), any());
+    }
+
+    @Test
     void getCustomerEsimReturns200() throws Exception {
         String userId = UUID.randomUUID().toString();
         OrderId orderId = OrderId.of(UUID.randomUUID());
