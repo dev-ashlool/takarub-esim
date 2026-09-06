@@ -1,5 +1,6 @@
 package com.takarub.esim.commerce.domain.order;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.takarub.esim.commerce.domain.cart.CartId;
@@ -30,4 +31,9 @@ public interface OrderRepository {
      * checkout idempotency (same intentional action retries).
      */
     Optional<Order> findByUserIdAndCheckoutRequestId(UserId userId, CheckoutRequestId checkoutRequestId);
+
+    /**
+     * Returns all orders for the user, newest {@code createdAt} first. Used by customer My Orders.
+     */
+    List<Order> findByUserIdOrderByCreatedAtDesc(UserId userId);
 }

@@ -8,11 +8,14 @@ import com.takarub.esim.commerce.application.usecase.AddItemToCartUseCase;
 import com.takarub.esim.commerce.application.usecase.CheckoutAndStartPaymentUseCase;
 import com.takarub.esim.commerce.application.usecase.CheckoutUseCase;
 import com.takarub.esim.commerce.application.usecase.GetCartUseCase;
+import com.takarub.esim.commerce.application.usecase.GetMyOrdersUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrCreateCartUseCase;
+import com.takarub.esim.commerce.application.usecase.GetOrderDetailsUseCase;
 import com.takarub.esim.commerce.application.usecase.RemoveCartItemUseCase;
 import com.takarub.esim.commerce.application.usecase.StartPaymentUseCase;
 import com.takarub.esim.commerce.application.usecase.UpdateCartItemQuantityUseCase;
 import com.takarub.esim.commerce.domain.cart.CartRepository;
+import com.takarub.esim.commerce.domain.fulfillment.FulfillmentWorkRepository;
 import com.takarub.esim.commerce.domain.order.OrderRepository;
 import com.takarub.esim.commerce.domain.payment.PaymentAttemptRepository;
 import com.takarub.esim.identity.application.port.TransactionRunner;
@@ -116,5 +119,17 @@ public class CommerceUseCaseConfig {
                 supplierProductSelectionPort,
                 idGenerator,
                 clockProvider);
+    }
+
+    @Bean
+    public GetMyOrdersUseCase getMyOrdersUseCase(
+            OrderRepository orderRepository, FulfillmentWorkRepository fulfillmentWorkRepository) {
+        return new GetMyOrdersUseCase(orderRepository, fulfillmentWorkRepository);
+    }
+
+    @Bean
+    public GetOrderDetailsUseCase getOrderDetailsUseCase(
+            OrderRepository orderRepository, FulfillmentWorkRepository fulfillmentWorkRepository) {
+        return new GetOrderDetailsUseCase(orderRepository, fulfillmentWorkRepository);
     }
 }

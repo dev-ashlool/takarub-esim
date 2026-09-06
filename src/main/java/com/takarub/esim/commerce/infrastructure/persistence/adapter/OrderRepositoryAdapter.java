@@ -1,5 +1,6 @@
 package com.takarub.esim.commerce.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
@@ -49,5 +50,12 @@ public class OrderRepositoryAdapter implements OrderRepository {
         return orderJpaRepository
                 .findByUserIdAndCheckoutRequestId(userId.value().toString(), checkoutRequestId.value())
                 .map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Order> findByUserIdOrderByCreatedAtDesc(UserId userId) {
+        return orderJpaRepository.findByUserIdOrderByCreatedAtDesc(userId.value().toString()).stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 }

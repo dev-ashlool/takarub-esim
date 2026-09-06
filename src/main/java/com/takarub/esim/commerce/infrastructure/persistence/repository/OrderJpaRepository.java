@@ -1,5 +1,6 @@
 package com.takarub.esim.commerce.infrastructure.persistence.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -22,4 +23,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderJpaEntity, String
 
     @EntityGraph(attributePaths = "items")
     Optional<OrderJpaEntity> findByUserIdAndCheckoutRequestId(String userId, String checkoutRequestId);
+
+    @EntityGraph(attributePaths = "items")
+    List<OrderJpaEntity> findByUserIdOrderByCreatedAtDesc(String userId);
 }
