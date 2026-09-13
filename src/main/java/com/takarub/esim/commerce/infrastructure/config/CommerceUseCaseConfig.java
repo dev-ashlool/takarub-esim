@@ -8,7 +8,9 @@ import com.takarub.esim.commerce.application.usecase.AddItemToCartUseCase;
 import com.takarub.esim.commerce.application.usecase.CheckoutAndStartPaymentUseCase;
 import com.takarub.esim.commerce.application.usecase.CheckoutUseCase;
 import com.takarub.esim.commerce.application.usecase.GetCartUseCase;
+import com.takarub.esim.commerce.application.port.AdminPurchaseQueryPort;
 import com.takarub.esim.commerce.application.usecase.GetCustomerEsimUseCase;
+import com.takarub.esim.commerce.application.usecase.SearchAdminPurchasesUseCase;
 import com.takarub.esim.commerce.application.usecase.GetMyOrdersUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrCreateCartUseCase;
 import com.takarub.esim.commerce.application.usecase.GetOrderDetailsUseCase;
@@ -133,6 +135,12 @@ public class CommerceUseCaseConfig {
     public GetOrderDetailsUseCase getOrderDetailsUseCase(
             OrderRepository orderRepository, FulfillmentWorkRepository fulfillmentWorkRepository) {
         return new GetOrderDetailsUseCase(orderRepository, fulfillmentWorkRepository);
+    }
+
+    @Bean
+    public SearchAdminPurchasesUseCase searchAdminPurchasesUseCase(
+            AdminPurchaseQueryPort adminPurchaseQueryPort) {
+        return new SearchAdminPurchasesUseCase(adminPurchaseQueryPort);
     }
 
     @Bean

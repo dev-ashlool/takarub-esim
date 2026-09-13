@@ -6,6 +6,9 @@ import java.util.List;
 public record UserResponse(
         String id,
         String email,
+        String fullName,
+        String country,
+        String phoneNumber,
         String status,
         List<String> roles,
         Instant createdAt,

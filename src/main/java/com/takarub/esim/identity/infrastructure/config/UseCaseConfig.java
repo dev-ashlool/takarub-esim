@@ -17,6 +17,7 @@ import com.takarub.esim.identity.application.usecase.GetUserByIdUseCase;
 import com.takarub.esim.identity.application.usecase.LogoutUseCase;
 import com.takarub.esim.identity.application.usecase.RefreshSessionUseCase;
 import com.takarub.esim.identity.application.usecase.RegisterUserUseCase;
+import com.takarub.esim.identity.application.usecase.UpdateCustomerProfileUseCase;
 import com.takarub.esim.identity.application.usecase.RequestPasswordResetUseCase;
 import com.takarub.esim.identity.application.usecase.RevokeSessionUseCase;
 import com.takarub.esim.identity.application.usecase.VerifyEmailUseCase;
@@ -121,6 +122,14 @@ public class UseCaseConfig {
             IdentityProperties properties) {
         return new RequestPasswordResetUseCase(userRepository, verificationRepository,
                 notificationSender, idGenerator, clockProvider, properties.passwordResetTtl());
+    }
+
+    @Bean
+    public UpdateCustomerProfileUseCase updateCustomerProfileUseCase(
+            TransactionRunner transactionRunner,
+            UserRepository userRepository,
+            ClockProvider clockProvider) {
+        return new UpdateCustomerProfileUseCase(transactionRunner, userRepository, clockProvider);
     }
 
     @Bean

@@ -53,12 +53,27 @@ public class UserJpaEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "full_name", length = 120)
+    private String fullName;
+
+    @Column(name = "country", length = 2)
+    private String country;
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
     protected UserJpaEntity() {
         // Required by JPA.
     }
 
     public UserJpaEntity(String id, String email, String passwordHash, UserStatus status,
                          Set<Role> roles, Instant createdAt, Instant updatedAt) {
+        this(id, email, passwordHash, status, roles, createdAt, updatedAt, null, null, null);
+    }
+
+    public UserJpaEntity(String id, String email, String passwordHash, UserStatus status,
+                         Set<Role> roles, Instant createdAt, Instant updatedAt,
+                         String fullName, String country, String phoneNumber) {
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -66,6 +81,9 @@ public class UserJpaEntity {
         this.roles = new HashSet<>(roles);
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.fullName = fullName;
+        this.country = country;
+        this.phoneNumber = phoneNumber;
     }
 
     public String getId() {
@@ -94,5 +112,17 @@ public class UserJpaEntity {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
     }
 }

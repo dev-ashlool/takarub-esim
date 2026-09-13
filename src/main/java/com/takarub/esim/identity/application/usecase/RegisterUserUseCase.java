@@ -67,7 +67,15 @@ public class RegisterUserUseCase {
             }
 
             PasswordHash passwordHash = passwordHasher.hash(command.rawPassword());
-            User user = User.register(idGenerator, clock, email, passwordHash, REGISTRATION_ROLE);
+            User user = User.register(
+                    idGenerator,
+                    clock,
+                    email,
+                    passwordHash,
+                    REGISTRATION_ROLE,
+                    command.fullName(),
+                    command.country(),
+                    command.phoneNumber());
             Verification verification = Verification.issue(idGenerator, clock, user.id(),
                     VerificationType.EMAIL_VERIFICATION, emailVerificationTtl);
 

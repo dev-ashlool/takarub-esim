@@ -1,0 +1,816 @@
+{
+  "info": {
+    "name": "Takarub eSIM All APIs",
+    "_postman_id": "b8e1d2c4-7a55-4f10-9c43-takarub-all-apis",
+    "description": "Complete v1 collection for local Takarub eSIM. Select environment 'Takarub eSIM Local' (baseUrl http://localhost:8081). Login saves accessToken; Admin Login saves adminAccessToken.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081" }
+  ],
+  "item": [
+    {
+      "name": "01 Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('userId', body.userId);",
+                  "  console.log('Registered userId=' + body.userId + ' status=' + body.status);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"fullName\": \"{{fullName}}\",\n  \"country\": \"{{country}}\",\n  \"phoneNumber\": \"{{phoneNumber}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "description": "Public. country is ISO-2. User starts PENDING_VERIFICATION."
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/verify-email",
+            "description": "token = verification UUID from DB (verifications.id)."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('accessToken', body.accessToken);",
+                  "  pm.environment.set('userId', body.userId);",
+                  "  pm.environment.set('sessionId', body.sessionId);",
+                  "  pm.environment.set('refreshToken', body.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"deviceName\": \"Postman\",\n  \"deviceType\": \"WEB\",\n  \"ipAddress\": \"127.0.0.1\",\n  \"userAgent\": \"PostmanRuntime\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('adminAccessToken', body.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"deviceName\": \"Postman-Admin\",\n  \"deviceType\": \"WEB\",\n  \"ipAddress\": \"127.0.0.1\",\n  \"userAgent\": \"PostmanRuntime\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('accessToken', body.accessToken);",
+                  "  pm.environment.set('sessionId', body.sessionId);",
+                  "  pm.environment.set('refreshToken', body.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/refresh"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/password/forgot"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"Password1234\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/password/reset"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Customer Profile",
+      "item": [
+        {
+          "name": "Get Me",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/customers/me"
+          }
+        },
+        {
+          "name": "Update Me",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"{{fullName}}\",\n  \"country\": \"{{country}}\",\n  \"phoneNumber\": \"{{phoneNumber}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/customers/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Users",
+      "item": [
+        {
+          "name": "Get User By Id",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/users/{{userId}}"
+          }
+        },
+        {
+          "name": "Get User By Email (ADMIN)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/users/email/{{email}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Catalog",
+      "item": [
+        {
+          "name": "List Countries",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/catalog/countries"
+          }
+        },
+        {
+          "name": "List Packages",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalog/packages?countryIso=JO",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "catalog", "packages"],
+              "query": [{ "key": "countryIso", "value": "JO" }]
+            }
+          }
+        },
+        {
+          "name": "Search Packages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const first = body.content && body.content[0];",
+                  "  if (first && first.id) { pm.environment.set('packageId', first.id); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalog/packages/search?countryIso=JO&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "catalog", "packages", "search"],
+              "query": [
+                { "key": "q", "value": "", "disabled": true },
+                { "key": "countryIso", "value": "JO" },
+                { "key": "dataAmount", "value": "", "disabled": true },
+                { "key": "dataUnit", "value": "", "disabled": true },
+                { "key": "durationDays", "value": "", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Package Details",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/catalog/packages/{{packageId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Cart & Checkout",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/cart"
+          }
+        },
+        {
+          "name": "Add Cart Item",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packageId\": \"{{packageId}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/cart/items"
+          }
+        },
+        {
+          "name": "Checkout",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('idempotencyKey', require('uuid').v4());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.orderId) { pm.environment.set('orderId', body.orderId); }",
+                  "  if (body.paymentAttemptId) { pm.environment.set('paymentAttemptId', body.paymentAttemptId); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packageId\": \"{{packageId}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/checkout",
+            "description": "Use a new Idempotency-Key for every real purchase. If an OPEN cart already has the same package, checkout can 500."
+          }
+        },
+        {
+          "name": "Start Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.paymentAttemptId) { pm.environment.set('paymentAttemptId', body.paymentAttemptId); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/payment/start"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Orders",
+      "item": [
+        {
+          "name": "My Orders",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders"
+          }
+        },
+        {
+          "name": "Order Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Order eSIM Activation",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/esim",
+            "description": "409 COMMERCE_ESIM_NOT_READY until fulfillmentStatus=FULFILLED."
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Contact Us",
+      "item": [
+        {
+          "name": "Submit Contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.id) { pm.environment.set('contactId', body.id); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{fullName}}\",\n  \"email\": \"{{email}}\",\n  \"phoneNumber\": \"{{phoneNumber}}\",\n  \"message\": \"I need help with my eSIM order.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/contact",
+            "description": "Public. phoneNumber is optional."
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Admin Contact",
+      "item": [
+        {
+          "name": "List Contact Messages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (Array.isArray(body) && body[0] && body[0].id) {",
+                  "    pm.environment.set('contactId', body[0].id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/contact"
+          }
+        },
+        {
+          "name": "Change Contact Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/contact/{{contactId}}/status",
+            "description": "status: NEW | IN_PROGRESS | RESOLVED"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Admin Purchases",
+      "item": [
+        {
+          "name": "Search Purchases",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/purchases?supplierKey=LIKE_CARD&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "purchases"],
+              "query": [
+                { "key": "supplierKey", "value": "LIKE_CARD" },
+                { "key": "from", "value": "2026-01-01T00:00:00Z", "disabled": true },
+                { "key": "to", "value": "2026-12-31T23:59:59Z", "disabled": true },
+                { "key": "packageName", "value": "Jordan", "disabled": true },
+                { "key": "phone", "value": "96279", "disabled": true },
+                { "key": "email", "value": "qusai", "disabled": true },
+                { "key": "name", "value": "Qusai", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "All filters optional. Omit from/to to return all."
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Admin Pricing",
+      "item": [
+        {
+          "name": "Get Pricing Config",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/pricing"
+          }
+        },
+        {
+          "name": "Upsert Global Markup",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"percentage\": 15\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/pricing/global-markup"
+          }
+        },
+        {
+          "name": "Upsert Package Pricing",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PERCENTAGE\",\n  \"percentage\": 10,\n  \"fixedPrice\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/pricing/packages/{{packageId}}"
+          }
+        },
+        {
+          "name": "Delete Package Pricing",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/admin/pricing/packages/{{packageId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Admin Supplier",
+      "item": [
+        {
+          "name": "Sync Supplier Now",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/admin/supplier/sync"
+          }
+        },
+        {
+          "name": "List Sync Audit Logs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/sync/audit-logs?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "sync", "audit-logs"],
+              "query": [
+                { "key": "supplier", "value": "LIKE_CARD", "disabled": true },
+                { "key": "from", "value": "", "disabled": true },
+                { "key": "to", "value": "", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Sync Jobs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const first = Array.isArray(body) ? body[0] : (body.content && body.content[0]);",
+                  "  if (first && first.id) { pm.environment.set('syncJobId', first.id); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/sync/jobs"
+          }
+        },
+        {
+          "name": "Create Sync Job",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierName\": \"LIKE_CARD\",\n  \"cronExpression\": \"0 0 */6 * * *\",\n  \"enabled\": false\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/sync/jobs"
+          }
+        },
+        {
+          "name": "Update Sync Job",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cronExpression\": \"0 0 */12 * * *\",\n  \"enabled\": false\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/sync/jobs/{{syncJobId}}"
+          }
+        },
+        {
+          "name": "Trigger Sync Job",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/admin/sync/jobs/{{syncJobId}}/trigger"
+          }
+        },
+        {
+          "name": "Delete Sync Job",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/admin/sync/jobs/{{syncJobId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Admin Exchange Rates",
+      "item": [
+        {
+          "name": "Upsert Exchange Rate",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"baseCurrency\": \"JOD\",\n  \"targetCurrency\": \"USD\",\n  \"rate\": 1.41\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/exchange-rates"
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Admin Email",
+      "item": [
+        {
+          "name": "Get SMTP Config",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/email/smtp-config"
+          }
+        },
+        {
+          "name": "Update SMTP Config",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"host\": \"smtp.gmail.com\",\n  \"port\": 587,\n  \"username\": \"noreply@example.com\",\n  \"password\": \"change-me\",\n  \"authEnabled\": true,\n  \"tlsEnabled\": true,\n  \"fromEmail\": \"noreply@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/email/smtp-config"
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Dev Payment",
+      "item": [
+        {
+          "name": "Fake Payment Success",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentAttemptId\": \"{{paymentAttemptId}}\",\n  \"verificationReference\": \"success\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/dev/payments/notifications",
+            "description": "Local only. Requires takarub.commerce.dev-payment-verification.enabled=true."
+          }
+        }
+      ]
+    }
+  ]
+}

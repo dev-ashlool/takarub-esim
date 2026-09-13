@@ -26,7 +26,8 @@ class UserPersistenceMapperTest {
         Instant createdAt = Instant.parse("2026-01-01T00:00:00Z");
         Instant updatedAt = Instant.parse("2026-03-03T03:03:03Z");
         User user = User.reconstitute(id, createdAt, updatedAt, EmailAddress.of("user@example.com"),
-                PasswordHash.of("$2a$10$hashvalue"), UserStatus.SUSPENDED, EnumSet.of(Role.CUSTOMER));
+                PasswordHash.of("$2a$10$hashvalue"), UserStatus.SUSPENDED, EnumSet.of(Role.CUSTOMER),
+                "Ahmad Ali", "JO", "+962790000000");
 
         UserJpaEntity entity = mapper.toEntity(user);
 
@@ -37,6 +38,9 @@ class UserPersistenceMapperTest {
         assertThat(entity.getRoles()).containsExactly(Role.CUSTOMER);
         assertThat(entity.getCreatedAt()).isEqualTo(createdAt);
         assertThat(entity.getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(entity.getFullName()).isEqualTo("Ahmad Ali");
+        assertThat(entity.getCountry()).isEqualTo("JO");
+        assertThat(entity.getPhoneNumber()).isEqualTo("+962790000000");
 
         User back = mapper.toDomain(entity);
 
@@ -47,5 +51,8 @@ class UserPersistenceMapperTest {
         assertThat(back.roles()).containsExactly(Role.CUSTOMER);
         assertThat(back.createdAt()).isEqualTo(createdAt);
         assertThat(back.updatedAt()).isEqualTo(updatedAt);
+        assertThat(back.fullName()).isEqualTo("Ahmad Ali");
+        assertThat(back.country()).isEqualTo("JO");
+        assertThat(back.phoneNumber()).isEqualTo("+962790000000");
     }
 }

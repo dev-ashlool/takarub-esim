@@ -116,7 +116,10 @@ class AuthenticationControllerTest {
                         .content("""
                                 {
                                   "email": "user@example.com",
-                                  "password": "password123"
+                                  "password": "password123",
+                                  "fullName": "Ahmad Ali",
+                                  "country": "JO",
+                                  "phoneNumber": "+962790000000"
                                 }
                                 """))
                 .andExpect(status().isCreated())

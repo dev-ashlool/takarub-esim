@@ -25,6 +25,9 @@ public class UserMapper {
         return new UserResponse(
                 view.id().value().toString(),
                 view.email().value(),
+                view.fullName(),
+                view.country(),
+                view.phoneNumber(),
                 view.status().name(),
                 roles,
                 view.createdAt(),

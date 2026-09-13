@@ -56,7 +56,10 @@ class UserControllerTest {
                 UserStatus.ACTIVE,
                 EnumSet.of(Role.CUSTOMER),
                 Instant.parse("2026-01-01T00:00:00Z"),
-                Instant.parse("2026-01-01T00:00:00Z")));
+                Instant.parse("2026-01-01T00:00:00Z"),
+                null,
+                null,
+                null));
 
         mockMvc.perform(get("/api/v1/users/{id}", userId.value()))
                 .andExpect(status().isOk())
@@ -72,7 +75,10 @@ class UserControllerTest {
                 UserStatus.ACTIVE,
                 EnumSet.of(Role.CUSTOMER),
                 Instant.parse("2026-01-01T00:00:00Z"),
-                Instant.parse("2026-01-01T00:00:00Z")));
+                Instant.parse("2026-01-01T00:00:00Z"),
+                null,
+                null,
+                null));
 
         mockMvc.perform(get("/api/v1/users/email/{email}", "admin-lookup@example.com"))
                 .andExpect(status().isOk())

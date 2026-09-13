@@ -19,7 +19,10 @@ public record UserView(
         UserStatus status,
         Set<Role> roles,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String fullName,
+        String country,
+        String phoneNumber
 ) {
 
     public static UserView from(User user) {
@@ -29,6 +32,9 @@ public record UserView(
                 user.status(),
                 user.roles(),
                 user.createdAt(),
-                user.updatedAt());
+                user.updatedAt(),
+                user.fullName(),
+                user.country(),
+                user.phoneNumber());
     }
 }
