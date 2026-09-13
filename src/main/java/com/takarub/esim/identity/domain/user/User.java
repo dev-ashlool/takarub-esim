@@ -25,18 +25,30 @@ public class User extends AggregateRoot<UserId> {
     private PasswordHash passwordHash;
     private UserStatus status;
     private final Set<Role> roles;
+    private String fullName;
+    private String country;
+    private String phoneNumber;
 
     private User(UserId id, Instant createdAt, EmailAddress email, PasswordHash passwordHash,
-                 UserStatus status, Set<Role> roles) {
+                 UserStatus status, Set<Role> roles, String fullName, String country, String phoneNumber) {
         super(id, createdAt);
         this.email = email;
         this.passwordHash = passwordHash;
         this.status = status;
         this.roles = EnumSet.copyOf(roles);
+        this.fullName = normalizeOptional(fullName);
+        this.country = CountryCode.normalizeOptional(country);
+        this.phoneNumber = PhoneNumber.normalizeOptional(phoneNumber);
     }
 
     public static User register(IdGenerator idGenerator, ClockProvider clock,
                                 EmailAddress email, PasswordHash passwordHash, Role role) {
+        return register(idGenerator, clock, email, passwordHash, role, null, null, null);
+    }
+
+    public static User register(IdGenerator idGenerator, ClockProvider clock,
+                                EmailAddress email, PasswordHash passwordHash, Role role,
+                                String fullName, String country, String phoneNumber) {
         if (email == null) {
             throw new ValidationException("Email is required to register a user");
         }
@@ -47,17 +59,21 @@ public class User extends AggregateRoot<UserId> {
             throw new ValidationException("Initial role is required to register a user");
         }
         return new User(UserId.generate(idGenerator), clock.now(), email, passwordHash,
-                UserStatus.PENDING_VERIFICATION, EnumSet.of(role));
+                UserStatus.PENDING_VERIFICATION, EnumSet.of(role), fullName, country, phoneNumber);
     }
 
     private User(UserId id, Instant createdAt, Instant updatedAt, EmailAddress email,
-                 PasswordHash passwordHash, UserStatus status, Set<Role> roles) {
+                 PasswordHash passwordHash, UserStatus status, Set<Role> roles,
+                 String fullName, String country, String phoneNumber) {
         super(id, createdAt, updatedAt);
         this.email = email;
         this.passwordHash = passwordHash;
         this.status = status;
         this.roles = (roles == null || roles.isEmpty())
                 ? EnumSet.noneOf(Role.class) : EnumSet.copyOf(roles);
+        this.fullName = normalizeOptional(fullName);
+        this.country = CountryCode.normalizeOptional(country);
+        this.phoneNumber = PhoneNumber.normalizeOptional(phoneNumber);
     }
 
     /**
@@ -68,7 +84,25 @@ public class User extends AggregateRoot<UserId> {
     public static User reconstitute(UserId id, Instant createdAt, Instant updatedAt,
                                     EmailAddress email, PasswordHash passwordHash,
                                     UserStatus status, Set<Role> roles) {
-        return new User(id, createdAt, updatedAt, email, passwordHash, status, roles);
+        return reconstitute(id, createdAt, updatedAt, email, passwordHash, status, roles, null, null, null);
+    }
+
+    public static User reconstitute(UserId id, Instant createdAt, Instant updatedAt,
+                                    EmailAddress email, PasswordHash passwordHash,
+                                    UserStatus status, Set<Role> roles,
+                                    String fullName, String country, String phoneNumber) {
+        return new User(id, createdAt, updatedAt, email, passwordHash, status, roles,
+                fullName, country, phoneNumber);
+    }
+
+    public void updateProfile(String fullName, String country, String phoneNumber, ClockProvider clock) {
+        if (status == UserStatus.DELETED) {
+            throw new UserDeletedException(id());
+        }
+        this.fullName = normalizeOptional(fullName);
+        this.country = CountryCode.require(country);
+        this.phoneNumber = PhoneNumber.require(phoneNumber);
+        touch(clock);
     }
 
     public void verifyEmail(ClockProvider clock) {
@@ -167,5 +201,28 @@ public class User extends AggregateRoot<UserId> {
 
     public Set<Role> roles() {
         return Set.copyOf(roles);
+    }
+
+    public String fullName() {
+        return fullName;
+    }
+
+    public String country() {
+        return country;
+    }
+
+    public String phoneNumber() {
+        return phoneNumber;
+    }
+
+    private static String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() > 120) {
+            throw new ValidationException("Full name must be at most 120 characters");
+        }
+        return trimmed;
     }
 }

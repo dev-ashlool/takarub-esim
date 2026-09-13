@@ -23,7 +23,10 @@ public class UserPersistenceMapper {
                 user.status(),
                 user.roles(),
                 user.createdAt(),
-                user.updatedAt());
+                user.updatedAt(),
+                user.fullName(),
+                user.country(),
+                user.phoneNumber());
     }
 
     public User toDomain(UserJpaEntity entity) {
@@ -34,6 +37,9 @@ public class UserPersistenceMapper {
                 EmailAddress.of(entity.getEmail()),
                 PasswordHash.of(entity.getPasswordHash()),
                 entity.getStatus(),
-                entity.getRoles());
+                entity.getRoles(),
+                entity.getFullName(),
+                entity.getCountry(),
+                entity.getPhoneNumber());
     }
 }

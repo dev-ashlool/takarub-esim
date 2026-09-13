@@ -30,7 +30,12 @@ import com.takarub.esim.identity.presentation.auth.response.VerifyEmailResponse;
 public class AuthenticationMapper {
 
     public RegisterUserCommand toCommand(RegisterUserRequest request) {
-        return new RegisterUserCommand(request.email(), request.password());
+        return new RegisterUserCommand(
+                request.email(),
+                request.password(),
+                request.fullName(),
+                request.country(),
+                request.phoneNumber());
     }
 
     public AuthenticateUserCommand toCommand(LoginRequest request) {
