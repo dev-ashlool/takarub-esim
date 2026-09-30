@@ -40,3 +40,10 @@ identity:
     secret: ${IDENTITY_JWT_SECRET:change-me-in-production-use-at-least-32-chars!!}
     issuer: takarub-esim-identity
     access-token-expiration: PT15M
+
+server:
+  port: 8090
+  ssl:
+    enabled: true
+    certificate: D:/cert/fullchain.crt
+    certificate-private-key: D:/cert/private.key
